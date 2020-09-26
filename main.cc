@@ -63,14 +63,15 @@ class Solution {
     }
 
     printf("Head heatmap:\n");
-    PrintHeatmap(head_heatmap, 5);
+    PrintHeatmap(head_heatmap, 2, 5);
 
     printf("\nBody heatmap:\n");
-    PrintHeatmap(body_heatmap, 0);
+    PrintHeatmap(body_heatmap, 20, 0);
   }
 
  private:
-  void PrintHeatmap(const vector<vector<int>>& heatmap, int print_top_k) const {
+  void PrintHeatmap(const vector<vector<int>>& heatmap, const float scale,
+                    const int print_top_k) const {
     int sum_heatmap = 0;
     for (int x = 0; x < r_; x++) {
       for (int y = 0; y < c_; y++) {
@@ -87,7 +88,7 @@ class Solution {
       printf("%d: ", x);
       for (int y = 0; y < c_; y++) {
         float normalized_probability =
-            (float)heatmap[x][y] * 100 / sum_heatmap;
+            (float)heatmap[x][y] * 100 * scale / sum_heatmap;
         probabilities.push_back(make_tuple(normalized_probability, x, y));
         printf("%5.1f ", normalized_probability);
       }
@@ -96,14 +97,14 @@ class Solution {
 
     if (print_top_k > 0) {
       sort(probabilities.begin(), probabilities.end(),
-          [](const tuple<double, int, int>& p1,
+           [](const tuple<double, int, int>& p1,
               const tuple<double, int, int>& p2) {
-            return get<0>(p1) > get<0>(p2);
-          });
+             return get<0>(p1) > get<0>(p2);
+           });
       printf("Top %d:\n", print_top_k);
       for (int i = 0; i < print_top_k; i++) {
         printf("%.1f%% (%d, %d)\n", get<0>(probabilities[i]),
-              get<1>(probabilities[i]), get<2>(probabilities[i]));
+               get<1>(probabilities[i]), get<2>(probabilities[i]));
       }
     }
   }
