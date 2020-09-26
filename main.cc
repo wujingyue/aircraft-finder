@@ -65,9 +65,9 @@ class Solution {
       printf("%d: ", x);
       for (int y = 0; y < c_; y++) {
         float normalized_probability =
-            (float)probability[x][y] / sum_probabilities;
+            (float)probability[x][y] * 100 / sum_probabilities;
         probabilities.push_back(make_tuple(normalized_probability, x, y));
-        printf("%.3f ", normalized_probability);
+        printf("%5.1f ", normalized_probability);
       }
       printf("\n");
     }
@@ -78,7 +78,7 @@ class Solution {
          });
     printf("Top 5:\n");
     for (int i = 0; i < 5; i++) {
-      printf("%.3f (%d, %d)\n", get<0>(probabilities[i]),
+      printf("%.1f%% (%d, %d)\n", get<0>(probabilities[i]),
              get<1>(probabilities[i]), get<2>(probabilities[i]));
     }
   }
