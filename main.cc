@@ -1,4 +1,5 @@
 #include <algorithm>
+#include <cmath>
 #include <iostream>
 #include <tuple>
 #include <vector>
@@ -63,15 +64,18 @@ class Solution {
     }
 
     printf("Head heatmap:\n");
-    PrintHeatmap(head_heatmap, 2, 5);
+    PrintHeatmap(head_heatmap, 2, greater<float>());
 
     printf("\nBody heatmap:\n");
-    PrintHeatmap(body_heatmap, 20, 0);
+    PrintHeatmap(body_heatmap, 20, [](float p1, float p2) {
+      return fabs(p1 - 50.0f) < fabs(p2 - 50.0f);
+    });
   }
 
  private:
+  template <class Comparator>
   void PrintHeatmap(const vector<vector<int>>& heatmap, const float scale,
-                    const int print_top_k) const {
+                    Comparator probability_comparator) const {
     int sum_heatmap = 0;
     for (int x = 0; x < r_; x++) {
       for (int y = 0; y < c_; y++) {
@@ -95,14 +99,15 @@ class Solution {
       printf("\n");
     }
 
-    if (print_top_k > 0) {
+    constexpr int kPrintLimit = 5;
+    if (kPrintLimit > 0) {
       sort(probabilities.begin(), probabilities.end(),
-           [](const tuple<double, int, int>& p1,
-              const tuple<double, int, int>& p2) {
-             return get<0>(p1) > get<0>(p2);
+           [&probability_comparator](const tuple<float, int, int>& t1,
+                                     const tuple<float, int, int>& t2) -> bool {
+             return probability_comparator(get<0>(t1), get<0>(t2));
            });
-      printf("Top %d:\n", print_top_k);
-      for (int i = 0; i < print_top_k; i++) {
+      printf("Top %d:\n", kPrintLimit);
+      for (int i = 0; i < kPrintLimit; i++) {
         printf("%.1f%% (%d, %d)\n", get<0>(probabilities[i]),
                get<1>(probabilities[i]), get<2>(probabilities[i]));
       }
