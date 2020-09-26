@@ -26,10 +26,10 @@ class Solution {
   }
 
   void PrintProbabilityMatrix() const {
-    vector<vector<int>> probability(r_, vector<int>(c_));
+    vector<vector<int>> head_heatmap(r_, vector<int>(c_));
+    vector<vector<int>> body_heatmap(r_, vector<int>(c_));
 
     vector<vector<Color>> scratch_board(r_, vector<Color>(c_, kWhite));
-    int sum_probabilities = 0;
     for (int x1 = 0; x1 < r_; x1++) {
       for (int y1 = 0; y1 < c_; y1++) {
         for (int dir1 = 0; dir1 < 4; dir1++) {
@@ -43,9 +43,15 @@ class Solution {
                   continue;
                 }
                 if (Matches(scratch_board)) {
-                  probability[x1][y1]++;
-                  probability[x2][y2]++;
-                  sum_probabilities += 2;
+                  head_heatmap[x1][y1]++;
+                  head_heatmap[x2][y2]++;
+
+                  for (const auto& p : GetLocations(x1, y1, dir1)) {
+                    body_heatmap[p.first][p.second]++;
+                  }
+                  for (const auto& p : GetLocations(x2, y2, dir2)) {
+                    body_heatmap[p.first][p.second]++;
+                  }
                 }
                 Lift(scratch_board, x2, y2, dir2);
               }
@@ -53,6 +59,22 @@ class Solution {
           }
           Lift(scratch_board, x1, y1, dir1);
         }
+      }
+    }
+
+    printf("Head heatmap:\n");
+    PrintHeatmap(head_heatmap, 5);
+
+    printf("\nBody heatmap:\n");
+    PrintHeatmap(body_heatmap, 0);
+  }
+
+ private:
+  void PrintHeatmap(const vector<vector<int>>& heatmap, int print_top_k) const {
+    int sum_heatmap = 0;
+    for (int x = 0; x < r_; x++) {
+      for (int y = 0; y < c_; y++) {
+        sum_heatmap += heatmap[x][y];
       }
     }
 
@@ -65,25 +87,27 @@ class Solution {
       printf("%d: ", x);
       for (int y = 0; y < c_; y++) {
         float normalized_probability =
-            (float)probability[x][y] * 100 / sum_probabilities;
+            (float)heatmap[x][y] * 100 / sum_heatmap;
         probabilities.push_back(make_tuple(normalized_probability, x, y));
         printf("%5.1f ", normalized_probability);
       }
       printf("\n");
     }
-    sort(probabilities.begin(), probabilities.end(),
-         [](const tuple<double, int, int>& p1,
-            const tuple<double, int, int>& p2) {
-           return get<0>(p1) > get<0>(p2);
-         });
-    printf("Top 5:\n");
-    for (int i = 0; i < 5; i++) {
-      printf("%.1f%% (%d, %d)\n", get<0>(probabilities[i]),
-             get<1>(probabilities[i]), get<2>(probabilities[i]));
+
+    if (print_top_k > 0) {
+      sort(probabilities.begin(), probabilities.end(),
+          [](const tuple<double, int, int>& p1,
+              const tuple<double, int, int>& p2) {
+            return get<0>(p1) > get<0>(p2);
+          });
+      printf("Top %d:\n", print_top_k);
+      for (int i = 0; i < print_top_k; i++) {
+        printf("%.1f%% (%d, %d)\n", get<0>(probabilities[i]),
+              get<1>(probabilities[i]), get<2>(probabilities[i]));
+      }
     }
   }
 
- private:
   bool TryLand(vector<vector<Color>>& b, int x, int y, int dir) const {
     vector<pair<int, int>> locations = GetLocations(x, y, dir);
     for (int i = 0, e = locations.size(); i < e; i++) {
