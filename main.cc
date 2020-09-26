@@ -1,7 +1,6 @@
 #include <algorithm>
 #include <cmath>
 #include <iostream>
-#include <tuple>
 #include <vector>
 
 using namespace std;
@@ -11,6 +10,12 @@ enum Color : char {
   kGray = 'g',
   kBlue = 'b',
   kRed = 'r',
+};
+
+struct CellProbability {
+  int x;
+  int y;
+  float probability;
 };
 
 class Solution {
@@ -64,12 +69,17 @@ class Solution {
     }
 
     printf("Head heatmap:\n");
-    PrintHeatmap(head_heatmap, 2, greater<float>());
+    PrintHeatmap(head_heatmap, 2,
+                 [](const CellProbability& p1, const CellProbability& p2) {
+                   return p1.probability > p2.probability;
+                 });
 
     printf("\nBody heatmap:\n");
-    PrintHeatmap(body_heatmap, 20, [](float p1, float p2) {
-      return fabs(p1 - 50.0f) < fabs(p2 - 50.0f);
-    });
+    PrintHeatmap(body_heatmap, 20,
+                 [](const CellProbability& p1, const CellProbability& p2) {
+                   return fabs(p1.probability - 50.0f) <
+                          fabs(p2.probability - 50.0f);
+                 });
   }
 
  private:
@@ -83,7 +93,7 @@ class Solution {
       }
     }
 
-    vector<tuple<float, int, int>> probabilities;
+    vector<CellProbability> probabilities;
     for (int y = 0; y < c_; y++) {
       printf("%6d", y);
     }
@@ -93,7 +103,7 @@ class Solution {
       for (int y = 0; y < c_; y++) {
         float normalized_probability =
             (float)heatmap[x][y] * 100 * scale / sum_heatmap;
-        probabilities.push_back(make_tuple(normalized_probability, x, y));
+        probabilities.push_back(CellProbability{x, y, normalized_probability});
         printf("%5.1f ", normalized_probability);
       }
       printf("\n");
@@ -101,15 +111,11 @@ class Solution {
 
     constexpr int kPrintLimit = 5;
     if (kPrintLimit > 0) {
-      sort(probabilities.begin(), probabilities.end(),
-           [&probability_comparator](const tuple<float, int, int>& t1,
-                                     const tuple<float, int, int>& t2) -> bool {
-             return probability_comparator(get<0>(t1), get<0>(t2));
-           });
+      sort(probabilities.begin(), probabilities.end(), probability_comparator);
       printf("Top %d:\n", kPrintLimit);
       for (int i = 0; i < kPrintLimit; i++) {
-        printf("%.1f%% (%d, %d)\n", get<0>(probabilities[i]),
-               get<1>(probabilities[i]), get<2>(probabilities[i]));
+        printf("(%d, %d) %.1f%%\n", probabilities[i].probability,
+               probabilities[i].x, probabilities[i].y);
       }
     }
   }
