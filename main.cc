@@ -12,10 +12,37 @@ enum Color : char {
   kRed = 'r',
 };
 
-struct CellProbability {
+struct CellEntropy {
   int x;
   int y;
-  float probability;
+  double entropy;
+};
+
+struct Probability {
+  double red = 0.0;
+  double blue = 0.0;
+  double white = 0.0;
+
+  double Entropy() const {
+    double entropy = 0.0;
+    if (red > 0.0) {
+      entropy -= log(red) * red;
+    }
+    if (blue > 0.0) {
+      entropy -= log(blue) * blue;
+    }
+    if (white > 0.0) {
+      entropy -= log(white) * white;
+    }
+    return entropy;
+  }
+
+  void Normalize() {
+    double sum = red + blue + white;
+    red /= sum;
+    blue /= sum;
+    white /= sum;
+  }
 };
 
 class Solution {
@@ -32,8 +59,7 @@ class Solution {
   }
 
   void PrintProbabilityMatrix() const {
-    vector<vector<int>> head_heatmap(r_, vector<int>(c_));
-    vector<vector<int>> body_heatmap(r_, vector<int>(c_));
+    vector<vector<Probability>> heatmap(r_, vector<Probability>(c_));
 
     vector<vector<Color>> scratch_board(r_, vector<Color>(c_, kWhite));
     for (int x1 = 0; x1 < r_; x1++) {
@@ -49,15 +75,7 @@ class Solution {
                   continue;
                 }
                 if (Matches(scratch_board)) {
-                  head_heatmap[x1][y1]++;
-                  head_heatmap[x2][y2]++;
-
-                  for (const auto& p : GetLocations(x1, y1, dir1)) {
-                    body_heatmap[p.first][p.second]++;
-                  }
-                  for (const auto& p : GetLocations(x2, y2, dir2)) {
-                    body_heatmap[p.first][p.second]++;
-                  }
+                  UpdateHeatmap(scratch_board, heatmap);
                 }
                 Lift(scratch_board, x2, y2, dir2);
               }
@@ -68,49 +86,22 @@ class Solution {
       }
     }
 
-    printf("Head heatmap:\n");
-    PrintHeatmap(head_heatmap, 2, 31,
-                 [](const CellProbability& p1, const CellProbability& p2) {
-                   return p1.probability > p2.probability;
-                 });
-
-    printf("\nBody heatmap:\n");
-    PrintHeatmap(body_heatmap, 20, 34,
-                 [](const CellProbability& p1, const CellProbability& p2) {
-                   return fabs(p1.probability - 50.0f) <
-                          fabs(p2.probability - 50.0f);
-                 });
-  }
-
- private:
-  template <class Comparator>
-  void PrintHeatmap(const vector<vector<int>>& heatmap, const float scale,
-                    const int color_code,
-                    Comparator probability_comparator) const {
-    int sum_heatmap = 0;
+    vector<CellEntropy> cell_entropies;
     for (int x = 0; x < r_; x++) {
       for (int y = 0; y < c_; y++) {
-        sum_heatmap += heatmap[x][y];
+        heatmap[x][y].Normalize();
+        cell_entropies.push_back(CellEntropy{x, y, heatmap[x][y].Entropy()});
       }
     }
-
-    vector<vector<float>> probabilities(r_, vector<float>(c_));
-    vector<CellProbability> cell_probabilities;
-    for (int x = 0; x < r_; x++) {
-      for (int y = 0; y < c_; y++) {
-        probabilities[x][y] = (float)heatmap[x][y] * 100 * scale / sum_heatmap;
-        cell_probabilities.push_back(
-            CellProbability{x, y, probabilities[x][y]});
-      }
-    }
-
-    sort(cell_probabilities.begin(), cell_probabilities.end(),
-         probability_comparator);
+    sort(cell_entropies.begin(), cell_entropies.end(),
+         [](const CellEntropy& e1, const CellEntropy& e2) {
+           return e1.entropy > e2.entropy;
+         });
 
     vector<pair<int, int>> top_cells;
-    constexpr int kPrintLimit = 3;
+    constexpr int kPrintLimit = 1;
     for (int i = 0; i < kPrintLimit; i++) {
-      top_cells.push_back({cell_probabilities[i].x, cell_probabilities[i].y});
+      top_cells.push_back({cell_entropies[i].x, cell_entropies[i].y});
     }
 
     for (int y = 0; y < c_; y++) {
@@ -120,17 +111,45 @@ class Solution {
     for (int x = 0; x < r_; x++) {
       printf("%d: ", x);
       for (int y = 0; y < c_; y++) {
+        double max_probability = max(heatmap[x][y].red, max(heatmap[x][y].blue, heatmap[x][y].white));
+        int color_code;
+        if (heatmap[x][y].red == max_probability) {
+          color_code = 31;
+        } else if (heatmap[x][y].blue == max_probability) {
+          color_code = 34;
+        } else {
+          color_code = 30;
+        }
+
         bool is_top = find(top_cells.begin(), top_cells.end(),
                            make_pair(x, y)) != top_cells.end();
-        if (is_top) {
-          printf("\033[1;%dm", color_code);
-        }
-        printf("%5.1f ", probabilities[x][y]);
-        if (is_top) {
-          printf("\33[0m");
-        }
+        printf("\033[%d;%dm", is_top, color_code);
+        printf("%5.1f ", max_probability * 100);
+        printf("\33[0m");
       }
       printf("\n");
+    }
+  }
+
+ private:
+  void UpdateHeatmap(const vector<vector<Color>>& b,
+                     vector<vector<Probability>>& heatmap) const {
+    for (int x = 0; x < r_; x++) {
+      for (int y = 0; y < c_; y++) {
+        switch (b[x][y]) {
+          case kRed:
+            heatmap[x][y].red++;
+            break;
+          case kBlue:
+            heatmap[x][y].blue++;
+            break;
+          case kWhite:
+            heatmap[x][y].white++;
+            break;
+          default:
+            break;
+        }
+      }
     }
   }
 
