@@ -69,13 +69,13 @@ class Solution {
     }
 
     printf("Head heatmap:\n");
-    PrintHeatmap(head_heatmap, 2,
+    PrintHeatmap(head_heatmap, 2, 31,
                  [](const CellProbability& p1, const CellProbability& p2) {
                    return p1.probability > p2.probability;
                  });
 
     printf("\nBody heatmap:\n");
-    PrintHeatmap(body_heatmap, 20,
+    PrintHeatmap(body_heatmap, 20, 34,
                  [](const CellProbability& p1, const CellProbability& p2) {
                    return fabs(p1.probability - 50.0f) <
                           fabs(p2.probability - 50.0f);
@@ -85,6 +85,7 @@ class Solution {
  private:
   template <class Comparator>
   void PrintHeatmap(const vector<vector<int>>& heatmap, const float scale,
+                    const int color_code,
                     Comparator probability_comparator) const {
     int sum_heatmap = 0;
     for (int x = 0; x < r_; x++) {
@@ -93,7 +94,25 @@ class Solution {
       }
     }
 
-    vector<CellProbability> probabilities;
+    vector<vector<float>> probabilities(r_, vector<float>(c_));
+    vector<CellProbability> cell_probabilities;
+    for (int x = 0; x < r_; x++) {
+      for (int y = 0; y < c_; y++) {
+        probabilities[x][y] = (float)heatmap[x][y] * 100 * scale / sum_heatmap;
+        cell_probabilities.push_back(
+            CellProbability{x, y, probabilities[x][y]});
+      }
+    }
+
+    sort(cell_probabilities.begin(), cell_probabilities.end(),
+         probability_comparator);
+
+    vector<pair<int, int>> top_cells;
+    constexpr int kPrintLimit = 3;
+    for (int i = 0; i < kPrintLimit; i++) {
+      top_cells.push_back({cell_probabilities[i].x, cell_probabilities[i].y});
+    }
+
     for (int y = 0; y < c_; y++) {
       printf("%6d", y);
     }
@@ -101,22 +120,17 @@ class Solution {
     for (int x = 0; x < r_; x++) {
       printf("%d: ", x);
       for (int y = 0; y < c_; y++) {
-        float normalized_probability =
-            (float)heatmap[x][y] * 100 * scale / sum_heatmap;
-        probabilities.push_back(CellProbability{x, y, normalized_probability});
-        printf("%5.1f ", normalized_probability);
+        bool is_top = find(top_cells.begin(), top_cells.end(),
+                           make_pair(x, y)) != top_cells.end();
+        if (is_top) {
+          printf("\033[1;%dm", color_code);
+        }
+        printf("%5.1f ", probabilities[x][y]);
+        if (is_top) {
+          printf("\33[0m");
+        }
       }
       printf("\n");
-    }
-
-    constexpr int kPrintLimit = 5;
-    if (kPrintLimit > 0) {
-      sort(probabilities.begin(), probabilities.end(), probability_comparator);
-      printf("Top %d:\n", kPrintLimit);
-      for (int i = 0; i < kPrintLimit; i++) {
-        printf("(%d, %d) %.1f%%\n", probabilities[i].probability,
-               probabilities[i].x, probabilities[i].y);
-      }
     }
   }
 
