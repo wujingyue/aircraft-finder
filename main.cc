@@ -111,27 +111,31 @@ class Solution {
     for (int x = 0; x < r_; x++) {
       printf("%d: ", x);
       for (int y = 0; y < c_; y++) {
-        double max_probability = max(heatmap[x][y].red, max(heatmap[x][y].blue, heatmap[x][y].white));
-        int color_code;
-        if (heatmap[x][y].red == max_probability) {
-          color_code = 31;
-        } else if (heatmap[x][y].blue == max_probability) {
-          color_code = 34;
-        } else {
-          color_code = 30;
-        }
-
         bool is_top = find(top_cells.begin(), top_cells.end(),
                            make_pair(x, y)) != top_cells.end();
-        printf("\033[%d;%dm", is_top, color_code);
-        printf("%5.1f ", max_probability * 100);
-        printf("\33[0m");
+        PrintCell(heatmap[x][y], is_top);
       }
       printf("\n");
     }
   }
 
  private:
+  void PrintCell(const Probability& p, const bool is_top) const {
+    double max_probability = max(p.red, max(p.blue, p.white));
+    int color_code;
+    if (p.red == max_probability) {
+      color_code = 31;
+    } else if (p.blue == max_probability) {
+      color_code = 34;
+    } else {
+      color_code = 30;
+    }
+
+    printf("\033[%d;%dm", is_top, color_code);
+    printf("%5.1f ", max_probability * 100);
+    printf("\33[0m");
+  }
+
   void UpdateHeatmap(const vector<vector<Color>>& b,
                      vector<vector<Probability>>& heatmap) const {
     for (int x = 0; x < r_; x++) {
