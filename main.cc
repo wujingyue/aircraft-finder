@@ -132,7 +132,7 @@ class Solution {
     }
 
     printf("\033[%d;%dm", is_top, color_code);
-    printf("%5.1f ", max_probability * 100);
+    printf("%5.1f ", p.Entropy() * 100);
     printf("\33[0m");
   }
 
