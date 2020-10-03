@@ -194,7 +194,11 @@ class Solution {
       if (b[x2][y2] != kWhite) {
         return false;
       }
-      b[x2][y2] = (dx == 0 && dy == 0 ? kRed : kBlue);
+      Color new_color = (dx == 0 && dy == 0 ? kRed : kBlue);
+      if (board_[x2][y2] != kGray && board_[x2][y2] != new_color) {
+        return false;
+      }
+      b[x2][y2] = new_color;
       placed->push_back({x2, y2});
     };
     return true;
@@ -212,11 +216,10 @@ class Solution {
   bool Matches(const vector<vector<Color>>& b) const {
     for (int x = 0; x < r_; x++) {
       for (int y = 0; y < c_; y++) {
-        if (board_[x][y] == kGray) {
-          continue;
-        }
-        if (board_[x][y] != b[x][y]) {
-          return false;
+        if (b[x][y] == kWhite) {
+          if (board_[x][y] == kRed || board_[x][y] == kBlue) {
+            return false;
+          }
         }
       }
     }
