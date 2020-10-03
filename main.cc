@@ -89,12 +89,11 @@ class Solution {
   }
 
   void SetColor(int x, int y, Color color) {
-    if (board_[x][y] != kGray) {
-      cerr << "board_[" << x << ", " << y << "] is already set to "
-           << board_[x][y] << endl;
-      return;
-    }
+    Color old_color = board_[x][y];
     board_[x][y] = color;
+    if (old_color == kBlue || old_color == kRed) {
+      known_bodies_--;
+    }
     if (color == kBlue || color == kRed) {
       known_bodies_++;
     }
