@@ -47,7 +47,11 @@ struct Probability {
 
 class Solution {
  public:
-  Solution(int r, int c) : r_(r), c_(c), board_(r, vector<Color>(c, kGray)) {}
+  Solution(int r, int c, int num_aircrafts)
+      : r_(r),
+        c_(c),
+        num_aircrafts_(num_aircrafts),
+        board_(r, vector<Color>(c, kGray)) {}
 
   void SetColor(int x, int y, Color color) {
     if (board_[x][y] != kGray) {
@@ -60,31 +64,8 @@ class Solution {
 
   void PrintProbabilityMatrix() const {
     vector<vector<Probability>> heatmap(r_, vector<Probability>(c_));
-
     vector<vector<Color>> scratch_board(r_, vector<Color>(c_, kWhite));
-    for (int x1 = 0; x1 < r_; x1++) {
-      for (int y1 = 0; y1 < c_; y1++) {
-        for (int dir1 = 0; dir1 < 4; dir1++) {
-          if (!TryLand(scratch_board, x1, y1, dir1)) {
-            continue;
-          }
-          for (int x2 = 0; x2 < r_; x2++) {
-            for (int y2 = 0; y2 < c_; y2++) {
-              for (int dir2 = 0; dir2 < 4; dir2++) {
-                if (!TryLand(scratch_board, x2, y2, dir2)) {
-                  continue;
-                }
-                if (Matches(scratch_board)) {
-                  UpdateHeatmap(scratch_board, heatmap);
-                }
-                Lift(scratch_board, x2, y2, dir2);
-              }
-            }
-          }
-          Lift(scratch_board, x1, y1, dir1);
-        }
-      }
-    }
+    DFS(num_aircrafts_, scratch_board, heatmap);
 
     vector<CellEntropy> cell_entropies;
     for (int x = 0; x < r_; x++) {
@@ -120,6 +101,27 @@ class Solution {
   }
 
  private:
+  void DFS(const int num_remaining, vector<vector<Color>>& scratch_board,
+           vector<vector<Probability>>& heatmap) const {
+    if (num_remaining == 0) {
+      if (Matches(scratch_board)) {
+        UpdateHeatmap(scratch_board, heatmap);
+      }
+      return;
+    }
+    for (int x = 0; x < r_; x++) {
+      for (int y = 0; y < c_; y++) {
+        for (int dir = 0; dir < 4; dir++) {
+          if (!TryLand(scratch_board, x, y, dir)) {
+            continue;
+          }
+          DFS(num_remaining - 1, scratch_board, heatmap);
+          Lift(scratch_board, x, y, dir);
+        }
+      }
+    }
+  }
+
   void PrintCell(const Probability& p, const bool is_top) const {
     double max_probability = max(p.red, max(p.blue, p.white));
     int color_code;
@@ -230,12 +232,12 @@ class Solution {
 
   const int r_;
   const int c_;
+  const int num_aircrafts_;
   vector<vector<Color>> board_;
 };
 
 int main() {
-  Solution s(10, 10);
-  char op;
+  Solution s(10, 10, 2);
   int x;
   int y;
   char color;
