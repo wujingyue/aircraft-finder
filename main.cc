@@ -51,7 +51,17 @@ class Solution {
       : r_(r),
         c_(c),
         num_aircrafts_(num_aircrafts),
-        board_(r, vector<Color>(c, kGray)) {}
+        board_(r, vector<Color>(c, kGray)),
+        aircraft_locations_({{0, 0},
+                             {1, -2},
+                             {1, -1},
+                             {1, 0},
+                             {1, 1},
+                             {1, 2},
+                             {2, 0},
+                             {3, -1},
+                             {3, 0},
+                             {3, 1}}) {}
 
   void SetColor(int x, int y, Color color) {
     if (board_[x][y] != kGray) {
@@ -65,7 +75,7 @@ class Solution {
   void PrintProbabilityMatrix() const {
     vector<vector<Probability>> heatmap(r_, vector<Probability>(c_));
     vector<vector<Color>> scratch_board(r_, vector<Color>(c_, kWhite));
-    DFS(num_aircrafts_, scratch_board, heatmap);
+    DFS(num_aircrafts_, -1, -1, scratch_board, heatmap);
 
     vector<CellEntropy> cell_entropies;
     for (int x = 0; x < r_; x++) {
@@ -85,12 +95,13 @@ class Solution {
       top_cells.push_back({cell_entropies[i].x, cell_entropies[i].y});
     }
 
+    printf("  ");
     for (int y = 0; y < c_; y++) {
-      printf("%6d", y);
+      printf("%6c", 'A' + y);
     }
     printf("\n");
     for (int x = 0; x < r_; x++) {
-      printf("%d: ", x);
+      printf("%2d: ", x + 1);
       for (int y = 0; y < c_; y++) {
         bool is_top = find(top_cells.begin(), top_cells.end(),
                            make_pair(x, y)) != top_cells.end();
@@ -101,7 +112,8 @@ class Solution {
   }
 
  private:
-  void DFS(const int num_remaining, vector<vector<Color>>& scratch_board,
+  void DFS(const int num_remaining, const int prev_x, const int prev_y,
+           vector<vector<Color>>& scratch_board,
            vector<vector<Probability>>& heatmap) const {
     if (num_remaining == 0) {
       if (Matches(scratch_board)) {
@@ -109,14 +121,18 @@ class Solution {
       }
       return;
     }
+    vector<pair<int, int>> placed;
+    placed.reserve(10);
     for (int x = 0; x < r_; x++) {
       for (int y = 0; y < c_; y++) {
+        if (make_pair(x, y) <= make_pair(prev_x, prev_y)) {
+          continue;
+        }
         for (int dir = 0; dir < 4; dir++) {
-          if (!TryLand(scratch_board, x, y, dir)) {
-            continue;
+          if (TryLand(scratch_board, x, y, dir, &placed)) {
+            DFS(num_remaining - 1, x, y, scratch_board, heatmap);
           }
-          DFS(num_remaining - 1, scratch_board, heatmap);
-          Lift(scratch_board, x, y, dir);
+          Lift(scratch_board, &placed);
         }
       }
     }
@@ -159,27 +175,37 @@ class Solution {
     }
   }
 
-  bool TryLand(vector<vector<Color>>& b, int x, int y, int dir) const {
-    vector<pair<int, int>> locations = GetLocations(x, y, dir);
-    for (int i = 0, e = locations.size(); i < e; i++) {
-      const auto& p = locations[i];
-      if (p.first < 0 || p.first >= r_ || p.second < 0 || p.second >= c_) {
-        Reset(b, locations, i);
+  bool TryLand(vector<vector<Color>>& b, int x, int y, int dir,
+               vector<pair<int, int>>* placed) const {
+    for (const pair<int, int>& location : aircraft_locations_) {
+      int dx = location.first;
+      int dy = location.second;
+      for (int k = 0; k < dir; k++) {
+        // Rotate (dx, dy) by 90 degrees.
+        int orig_dx = dx;
+        dx = -dy;
+        dy = orig_dx;
+      }
+      int x2 = x + dx;
+      int y2 = y + dy;
+      if (x2 < 0 || x2 >= r_ || y2 < 0 || y2 >= c_) {
         return false;
       }
-      if (b[p.first][p.second] != kWhite) {
-        Reset(b, locations, i);
+      if (b[x2][y2] != kWhite) {
         return false;
       }
-      b[p.first][p.second] = (i == 0 ? kRed : kBlue);
-    }
+      b[x2][y2] = (dx == 0 && dy == 0 ? kRed : kBlue);
+      placed->push_back({x2, y2});
+    };
     return true;
   }
 
-  void Lift(vector<vector<Color>>& b, int x, int y, int dir) const {
-    vector<pair<int, int>> locations = GetLocations(x, y, dir);
-    for (const auto& p : locations) {
-      b[p.first][p.second] = kWhite;
+  void Lift(vector<vector<Color>>& b, vector<pair<int, int>>* placed) const {
+    while (!placed->empty()) {
+      int x = placed->back().first;
+      int y = placed->back().second;
+      placed->pop_back();
+      b[x][y] = kWhite;
     }
   }
 
@@ -197,52 +223,32 @@ class Solution {
     return true;
   }
 
-  static void Reset(vector<vector<Color>>& b,
-                    const vector<pair<int, int>>& locations, const int e) {
-    for (int i = 0; i < e; i++) {
-      const auto& p = locations[i];
-      b[p.first][p.second] = kWhite;
-    }
-  }
-
-  static vector<pair<int, int>> GetLocations(const int x, const int y,
-                                             const int dir) {
-    vector<pair<int, int>> locations;
-    auto AddLocation = [&locations, x, y, dir](int dx, int dy) {
-      for (int k = 0; k < dir; k++) {
-        // Rotate (dx, dy) by 90 degrees.
-        int orig_dx = dx;
-        dx = -dy;
-        dy = orig_dx;
-      }
-      locations.push_back({x + dx, y + dy});
-    };
-    AddLocation(0, 0);
-    AddLocation(1, -2);
-    AddLocation(1, -1);
-    AddLocation(1, 0);
-    AddLocation(1, 1);
-    AddLocation(1, 2);
-    AddLocation(2, 0);
-    AddLocation(3, -1);
-    AddLocation(3, 0);
-    AddLocation(3, 1);
-    return locations;
-  }
-
   const int r_;
   const int c_;
   const int num_aircrafts_;
   vector<vector<Color>> board_;
+  const vector<pair<int, int>> aircraft_locations_;
 };
 
-int main() {
-  Solution s(10, 10, 2);
+int main(int argc, char* argv[]) {
+  if (argc < 4) {
+    cerr << "Usage error: ./main <num rows> <num colums> <num aircrafts>"
+         << endl;
+    return 1;
+  }
+
+  int r = atoi(argv[1]);
+  int c = atoi(argv[2]);
+  int num_aircrafts = atoi(argv[3]);
+  Solution s(r, c, num_aircrafts);
+
   int x;
-  int y;
+  char char_y;
   char color;
   s.PrintProbabilityMatrix();
-  while (cin >> x >> y >> color) {
+  while (cin >> x >> char_y >> color) {
+    x--;
+    int y = char_y - (isupper(char_y) ? 'A' : 'a');
     s.SetColor(x, y, static_cast<Color>(color));
     s.PrintProbabilityMatrix();
   }
