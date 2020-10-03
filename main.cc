@@ -72,16 +72,16 @@ class Solution {
         num_aircrafts_(num_aircrafts),
         board_(r, vector<Color>(c, kGray)),
         known_bodies_(0),
-        aircraft_locations_({{0, 0},
-                             {1, -2},
-                             {1, -1},
-                             {1, 0},
-                             {1, 1},
-                             {1, 2},
-                             {2, 0},
-                             {3, -1},
-                             {3, 0},
-                             {3, 1}}) {}
+        aircraft_bodies_({{0, 0},
+                          {1, -2},
+                          {1, -1},
+                          {1, 0},
+                          {1, 1},
+                          {1, 2},
+                          {2, 0},
+                          {3, -1},
+                          {3, 0},
+                          {3, 1}}) {}
 
   void SetColor(int x, int y, Color color) {
     if (board_[x][y] != kGray) {
@@ -151,7 +151,7 @@ class Solution {
           const int num_remaining_known_bodies, const int prev_x,
           const int prev_y, vector<vector<Color>>& scratch_board,
           vector<vector<Frequency>>& heatmap) const {
-    if (num_remaining_aircrafts * (int)aircraft_locations_.size() <
+    if (num_remaining_aircrafts * (int)aircraft_bodies_.size() <
         num_remaining_known_bodies) {
       return 0;
     }
@@ -163,7 +163,7 @@ class Solution {
 
     int num_combinations = 0;
     vector<pair<int, int>> placed;
-    placed.reserve(aircraft_locations_.size());
+    placed.reserve(aircraft_bodies_.size());
     for (int x = 0; x < r_; x++) {
       for (int y = 0; y < c_; y++) {
         if (make_pair(x, y) <= make_pair(prev_x, prev_y)) {
@@ -225,9 +225,9 @@ class Solution {
   bool TryLand(vector<vector<Color>>& b, int x, int y, int dir,
                vector<pair<int, int>>* placed,
                int* num_known_bodies_covered) const {
-    for (const pair<int, int>& location : aircraft_locations_) {
-      int dx = location.first;
-      int dy = location.second;
+    for (const pair<int, int>& body : aircraft_bodies_) {
+      int dx = body.first;
+      int dy = body.second;
       for (int k = 0; k < dir; k++) {
         // Rotate (dx, dy) by 90 degrees.
         int orig_dx = dx;
@@ -269,7 +269,7 @@ class Solution {
   const int num_aircrafts_;
   vector<vector<Color>> board_;
   int known_bodies_;
-  const vector<pair<int, int>> aircraft_locations_;
+  const vector<pair<int, int>> aircraft_bodies_;
 };
 
 int main(int argc, char* argv[]) {
