@@ -176,18 +176,13 @@ class Solution {
                      vector<vector<Probability>>& heatmap) const {
     for (int x = 0; x < r_; x++) {
       for (int y = 0; y < c_; y++) {
-        switch (b[x][y]) {
-          case kRed:
-            heatmap[x][y].red++;
-            break;
-          case kBlue:
-            heatmap[x][y].blue++;
-            break;
-          case kWhite:
-            heatmap[x][y].white++;
-            break;
-          default:
-            break;
+        Color color = b[x][y];
+        if (color == kRed) {
+          heatmap[x][y].red++;
+        } else if (color == kBlue) {
+          heatmap[x][y].blue++;
+        } else {
+          heatmap[x][y].white++;
         }
       }
     }
