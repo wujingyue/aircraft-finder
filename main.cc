@@ -64,6 +64,12 @@ class Probability {
   double white_;
 };
 
+struct AircraftPosition {
+  int x;
+  int y;
+  int dir;
+};
+
 class Solution {
  public:
   Solution(int r, int c, int num_aircrafts)
@@ -71,17 +77,16 @@ class Solution {
         c_(c),
         num_aircrafts_(num_aircrafts),
         board_(r, vector<Color>(c, kGray)),
-        known_bodies_(0),
-        aircraft_bodies_({{0, 0},
-                          {1, -2},
-                          {1, -1},
-                          {1, 0},
-                          {1, 1},
-                          {1, 2},
-                          {2, 0},
-                          {3, -1},
-                          {3, 0},
-                          {3, 1}}) {}
+        known_bodies_(0) {
+    aircraft_bodies_.resize(4);
+    aircraft_bodies_[0] = {{0, 0}, {1, -2}, {1, -1}, {1, 0}, {1, 1},
+                           {1, 2}, {2, 0},  {3, -1}, {3, 0}, {3, 1}};
+    for (int k = 1; k < 4; k++) {
+      for (const pair<int, int>& body : aircraft_bodies_[k - 1]) {
+        aircraft_bodies_[k].push_back({-body.second, body.first});
+      }
+    }
+  }
 
   void SetColor(int x, int y, Color color) {
     if (board_[x][y] != kGray) {
@@ -98,8 +103,10 @@ class Solution {
   void PrintProbabilityMatrix() const {
     vector<vector<Frequency>> heatmap(r_, vector<Frequency>(c_));
     vector<vector<Color>> scratch_board(r_, vector<Color>(c_, kWhite));
+    vector<AircraftPosition> aircraft_positions;
+    aircraft_positions.reserve(num_aircrafts_);
     int num_combinations =
-        DFS(num_aircrafts_, known_bodies_, -1, -1, scratch_board, heatmap);
+        DFS(known_bodies_, aircraft_positions, scratch_board, heatmap);
 
     for (int x = 0; x < r_; x++) {
       for (int y = 0; y < c_; y++) {
@@ -147,36 +154,41 @@ class Solution {
   }
 
  private:
-  int DFS(const int num_remaining_aircrafts,
-          const int num_remaining_known_bodies, const int prev_x,
-          const int prev_y, vector<vector<Color>>& scratch_board,
+  int DFS(const int num_remaining_known_bodies,
+          vector<AircraftPosition>& aircraft_positions,
+          vector<vector<Color>>& scratch_board,
           vector<vector<Frequency>>& heatmap) const {
-    if (num_remaining_aircrafts * (int)aircraft_bodies_.size() <
+    if ((num_aircrafts_ - (int)aircraft_positions.size()) *
+            (int)aircraft_bodies_[0].size() <
         num_remaining_known_bodies) {
       return 0;
     }
 
-    if (num_remaining_aircrafts == 0) {
-      UpdateHeatmap(scratch_board, heatmap);
+    if (num_aircrafts_ == (int)aircraft_positions.size()) {
+      UpdateHeatmap(aircraft_positions, heatmap);
       return 1;
     }
 
     int num_combinations = 0;
     vector<pair<int, int>> placed;
-    placed.reserve(aircraft_bodies_.size());
+    placed.reserve(aircraft_bodies_[0].size());
     for (int x = 0; x < r_; x++) {
       for (int y = 0; y < c_; y++) {
-        if (make_pair(x, y) <= make_pair(prev_x, prev_y)) {
-          continue;
+        if (!aircraft_positions.empty()) {
+          const AircraftPosition& prev = aircraft_positions.back();
+          if (make_pair(x, y) <= make_pair(prev.x, prev.y)) {
+            continue;
+          }
         }
         for (int dir = 0; dir < 4; dir++) {
           int num_known_bodies_covered = 0;
           if (TryLand(scratch_board, x, y, dir, &placed,
                       &num_known_bodies_covered)) {
+            aircraft_positions.push_back(AircraftPosition{x, y, dir});
             num_combinations +=
-                DFS(num_remaining_aircrafts - 1,
-                    num_remaining_known_bodies - num_known_bodies_covered, x, y,
-                    scratch_board, heatmap);
+                DFS(num_remaining_known_bodies - num_known_bodies_covered,
+                    aircraft_positions, scratch_board, heatmap);
+            aircraft_positions.pop_back();
           }
           Lift(scratch_board, &placed);
         }
@@ -208,15 +220,18 @@ class Solution {
     printf("\33[0m");
   }
 
-  void UpdateHeatmap(const vector<vector<Color>>& b,
+  void UpdateHeatmap(const vector<AircraftPosition>& aircraft_positions,
                      vector<vector<Frequency>>& heatmap) const {
-    for (int x = 0; x < r_; x++) {
-      for (int y = 0; y < c_; y++) {
-        Color color = b[x][y];
-        if (color == kRed) {
-          heatmap[x][y].red++;
-        } else if (color == kBlue) {
-          heatmap[x][y].blue++;
+    for (const auto& pos : aircraft_positions) {
+      for (const pair<int, int>& body : aircraft_bodies_[pos.dir]) {
+        int dx = body.first;
+        int dy = body.second;
+        int x2 = pos.x + dx;
+        int y2 = pos.y + dy;
+        if (dx == 0 && dy == 0) {
+          heatmap[x2][y2].red++;
+        } else {
+          heatmap[x2][y2].blue++;
         }
       }
     }
@@ -225,15 +240,9 @@ class Solution {
   bool TryLand(vector<vector<Color>>& b, int x, int y, int dir,
                vector<pair<int, int>>* placed,
                int* num_known_bodies_covered) const {
-    for (const pair<int, int>& body : aircraft_bodies_) {
+    for (const pair<int, int>& body : aircraft_bodies_[dir]) {
       int dx = body.first;
       int dy = body.second;
-      for (int k = 0; k < dir; k++) {
-        // Rotate (dx, dy) by 90 degrees.
-        int orig_dx = dx;
-        dx = -dy;
-        dy = orig_dx;
-      }
       int x2 = x + dx;
       int y2 = y + dy;
       if (x2 < 0 || x2 >= r_ || y2 < 0 || y2 >= c_) {
@@ -269,7 +278,7 @@ class Solution {
   const int num_aircrafts_;
   vector<vector<Color>> board_;
   int known_bodies_;
-  const vector<pair<int, int>> aircraft_bodies_;
+  vector<vector<pair<int, int>>> aircraft_bodies_;
 };
 
 int main(int argc, char* argv[]) {
