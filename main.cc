@@ -18,31 +18,50 @@ struct CellEntropy {
   double entropy;
 };
 
-struct Probability {
-  double red = 0.0;
-  double blue = 0.0;
-  double white = 0.0;
+struct Frequency {
+  int red = 0;
+  int blue = 0;
+  int white = 0;
+};
+
+class Probability {
+ public:
+  explicit Probability(Frequency freq) {
+    red_ = freq.red;
+    blue_ = freq.blue;
+    white_ = freq.white;
+    Normalize();
+  }
 
   double Entropy() const {
     double entropy = 0.0;
-    if (red > 0.0) {
-      entropy -= log(red) * red;
+    if (red_ > 0.0) {
+      entropy -= log(red_) * red_;
     }
-    if (blue > 0.0) {
-      entropy -= log(blue) * blue;
+    if (blue_ > 0.0) {
+      entropy -= log(blue_) * blue_;
     }
-    if (white > 0.0) {
-      entropy -= log(white) * white;
+    if (white_ > 0.0) {
+      entropy -= log(white_) * white_;
     }
     return entropy;
   }
 
+  double Red() const { return red_; }
+  double Blue() const { return blue_; }
+  double White() const { return white_; }
+
+ private:
   void Normalize() {
-    double sum = red + blue + white;
-    red /= sum;
-    blue /= sum;
-    white /= sum;
+    double sum = red_ + blue_ + white_;
+    red_ /= sum;
+    blue_ /= sum;
+    white_ /= sum;
   }
+
+  double red_;
+  double blue_;
+  double white_;
 };
 
 class Solution {
@@ -77,15 +96,19 @@ class Solution {
   }
 
   void PrintProbabilityMatrix() const {
-    vector<vector<Probability>> heatmap(r_, vector<Probability>(c_));
+    vector<vector<Frequency>> heatmap(r_, vector<Frequency>(c_));
     vector<vector<Color>> scratch_board(r_, vector<Color>(c_, kWhite));
     DFS(num_aircrafts_, known_bodies_, -1, -1, scratch_board, heatmap);
 
+    vector<vector<Probability>> normalized_heatmap;
+    normalized_heatmap.resize(r_);
     vector<CellEntropy> cell_entropies;
     for (int x = 0; x < r_; x++) {
+      normalized_heatmap.reserve(c_);
       for (int y = 0; y < c_; y++) {
-        heatmap[x][y].Normalize();
-        cell_entropies.push_back(CellEntropy{x, y, heatmap[x][y].Entropy()});
+        normalized_heatmap[x].push_back(Probability(heatmap[x][y]));
+        cell_entropies.push_back(
+            CellEntropy{x, y, normalized_heatmap[x][y].Entropy()});
       }
     }
     sort(cell_entropies.begin(), cell_entropies.end(),
@@ -109,7 +132,7 @@ class Solution {
       for (int y = 0; y < c_; y++) {
         bool is_top = find(top_cells.begin(), top_cells.end(),
                            make_pair(x, y)) != top_cells.end();
-        PrintCell(heatmap[x][y], is_top, board_[x][y] != kGray);
+        PrintCell(normalized_heatmap[x][y], is_top, board_[x][y] != kGray);
       }
       printf("\n");
     }
@@ -119,7 +142,7 @@ class Solution {
   void DFS(const int num_remaining_aircrafts,
            const int num_remaining_known_bodies, const int prev_x,
            const int prev_y, vector<vector<Color>>& scratch_board,
-           vector<vector<Probability>>& heatmap) const {
+           vector<vector<Frequency>>& heatmap) const {
     if (num_remaining_aircrafts * (int)aircraft_locations_.size() <
         num_remaining_known_bodies) {
       return;
@@ -151,11 +174,11 @@ class Solution {
 
   void PrintCell(const Probability& p, const bool is_top,
                  const bool is_known) const {
-    double max_probability = max(p.red, max(p.blue, p.white));
+    double max_probability = max(p.Red(), max(p.Blue(), p.White()));
     int color_code;
-    if (p.red == max_probability) {
+    if (p.Red() == max_probability) {
       color_code = 31;
-    } else if (p.blue == max_probability) {
+    } else if (p.Blue() == max_probability) {
       color_code = 34;
     } else {
       color_code = 30;
@@ -173,7 +196,7 @@ class Solution {
   }
 
   void UpdateHeatmap(const vector<vector<Color>>& b,
-                     vector<vector<Probability>>& heatmap) const {
+                     vector<vector<Frequency>>& heatmap) const {
     for (int x = 0; x < r_; x++) {
       for (int y = 0; y < c_; y++) {
         Color color = b[x][y];
