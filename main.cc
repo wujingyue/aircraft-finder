@@ -109,7 +109,7 @@ class Solution {
       for (int y = 0; y < c_; y++) {
         bool is_top = find(top_cells.begin(), top_cells.end(),
                            make_pair(x, y)) != top_cells.end();
-        PrintCell(heatmap[x][y], is_top);
+        PrintCell(heatmap[x][y], is_top, board_[x][y] != kGray);
       }
       printf("\n");
     }
@@ -149,7 +149,8 @@ class Solution {
     }
   }
 
-  void PrintCell(const Probability& p, const bool is_top) const {
+  void PrintCell(const Probability& p, const bool is_top,
+                 const bool is_known) const {
     double max_probability = max(p.red, max(p.blue, p.white));
     int color_code;
     if (p.red == max_probability) {
@@ -160,7 +161,13 @@ class Solution {
       color_code = 30;
     }
 
-    printf("\033[%d;%dm", is_top, color_code);
+    int style_code = 0;
+    if (is_top) {
+      style_code = 1;
+    } else if (is_known) {
+      style_code = 9;
+    }
+    printf("\033[%d;%dm", style_code, color_code);
     printf("%5.1f ", p.Entropy() * 100);
     printf("\33[0m");
   }
