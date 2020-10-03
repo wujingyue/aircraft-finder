@@ -98,7 +98,15 @@ class Solution {
   void PrintProbabilityMatrix() const {
     vector<vector<Frequency>> heatmap(r_, vector<Frequency>(c_));
     vector<vector<Color>> scratch_board(r_, vector<Color>(c_, kWhite));
-    DFS(num_aircrafts_, known_bodies_, -1, -1, scratch_board, heatmap);
+    int num_combinations =
+        DFS(num_aircrafts_, known_bodies_, -1, -1, scratch_board, heatmap);
+
+    for (int x = 0; x < r_; x++) {
+      for (int y = 0; y < c_; y++) {
+        heatmap[x][y].white =
+            num_combinations - heatmap[x][y].red - heatmap[x][y].blue;
+      }
+    }
 
     vector<vector<Probability>> normalized_heatmap;
     normalized_heatmap.resize(r_);
@@ -139,18 +147,21 @@ class Solution {
   }
 
  private:
-  void DFS(const int num_remaining_aircrafts,
-           const int num_remaining_known_bodies, const int prev_x,
-           const int prev_y, vector<vector<Color>>& scratch_board,
-           vector<vector<Frequency>>& heatmap) const {
+  int DFS(const int num_remaining_aircrafts,
+          const int num_remaining_known_bodies, const int prev_x,
+          const int prev_y, vector<vector<Color>>& scratch_board,
+          vector<vector<Frequency>>& heatmap) const {
     if (num_remaining_aircrafts * (int)aircraft_locations_.size() <
         num_remaining_known_bodies) {
-      return;
+      return 0;
     }
+
     if (num_remaining_aircrafts == 0) {
       UpdateHeatmap(scratch_board, heatmap);
-      return;
+      return 1;
     }
+
+    int num_combinations = 0;
     vector<pair<int, int>> placed;
     placed.reserve(aircraft_locations_.size());
     for (int x = 0; x < r_; x++) {
@@ -162,14 +173,16 @@ class Solution {
           int num_known_bodies_covered = 0;
           if (TryLand(scratch_board, x, y, dir, &placed,
                       &num_known_bodies_covered)) {
-            DFS(num_remaining_aircrafts - 1,
-                num_remaining_known_bodies - num_known_bodies_covered, x, y,
-                scratch_board, heatmap);
+            num_combinations +=
+                DFS(num_remaining_aircrafts - 1,
+                    num_remaining_known_bodies - num_known_bodies_covered, x, y,
+                    scratch_board, heatmap);
           }
           Lift(scratch_board, &placed);
         }
       }
     }
+    return num_combinations;
   }
 
   void PrintCell(const Probability& p, const bool is_top,
@@ -204,8 +217,6 @@ class Solution {
           heatmap[x][y].red++;
         } else if (color == kBlue) {
           heatmap[x][y].blue++;
-        } else {
-          heatmap[x][y].white++;
         }
       }
     }
