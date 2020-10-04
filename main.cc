@@ -12,12 +12,6 @@ enum Color : char {
   kRed = 'r',
 };
 
-struct CellEntropy {
-  int x;
-  int y;
-  double entropy;
-};
-
 struct Frequency {
   int red = 0;
   int blue = 0;
@@ -62,6 +56,12 @@ class Probability {
   double red_;
   double blue_;
   double white_;
+};
+
+struct CellProbability {
+  int x;
+  int y;
+  Probability prob;
 };
 
 struct AircraftPosition {
@@ -116,24 +116,26 @@ class Solution {
 
     vector<vector<Probability>> normalized_heatmap;
     normalized_heatmap.resize(r_);
-    vector<CellEntropy> cell_entropies;
+    vector<CellProbability> cell_probabilities;
     for (int x = 0; x < r_; x++) {
       normalized_heatmap.reserve(c_);
       for (int y = 0; y < c_; y++) {
-        normalized_heatmap[x].push_back(Probability(heatmap[x][y]));
-        cell_entropies.push_back(
-            CellEntropy{x, y, normalized_heatmap[x][y].Entropy()});
+        Probability prob(heatmap[x][y]);
+        normalized_heatmap[x].push_back(prob);
+        cell_probabilities.push_back(CellProbability{x, y, prob});
       }
     }
-    sort(cell_entropies.begin(), cell_entropies.end(),
-         [](const CellEntropy& e1, const CellEntropy& e2) {
-           return e1.entropy > e2.entropy;
+    sort(cell_probabilities.begin(), cell_probabilities.end(),
+         [](const CellProbability& p1, const CellProbability& p2) {
+           const double e1 = p1.prob.Entropy();
+           const double e2 = p2.prob.Entropy();
+           return e1 > e2 || (e1 == e2 && p1.prob.Red() > p2.prob.Red());
          });
 
     vector<pair<int, int>> top_cells;
     constexpr int kPrintLimit = 1;
     for (int i = 0; i < kPrintLimit; i++) {
-      top_cells.push_back({cell_entropies[i].x, cell_entropies[i].y});
+      top_cells.push_back({cell_probabilities[i].x, cell_probabilities[i].y});
     }
 
     printf("  ");
