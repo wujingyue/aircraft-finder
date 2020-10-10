@@ -70,13 +70,15 @@ struct AircraftPosition {
   int dir;
 };
 
-class Solution {
+class DFSHelper {
  public:
-  Solution(int r, int c, int num_aircrafts)
-      : r_(r),
-        c_(c),
+  DFSHelper(const vector<vector<Color>>& board, const int num_aircrafts,
+            vector<vector<Frequency>>& heatmap)
+      : board_(board),
+        r_(board.size()),
+        c_(board[0].size()),
         num_aircrafts_(num_aircrafts),
-        board_(r, vector<Color>(c, kGray)) {
+        heatmap_(heatmap) {
     aircraft_bodies_.resize(4);
     aircraft_bodies_[0] = {{0, 0}, {1, -2}, {1, -1}, {1, 0}, {1, 1},
                            {1, 2}, {2, 0},  {3, -1}, {3, 0}, {3, 1}};
@@ -87,23 +89,142 @@ class Solution {
     }
   }
 
-  void SetColor(int x, int y, Color color) {
-    board_[x][y] = color;
-  }
-
-  void PrintProbabilityMatrix() const {
-    vector<vector<Frequency>> heatmap(r_, vector<Frequency>(c_));
-    vector<vector<bool>> occupied(r_, vector<bool>(c_));
-    vector<AircraftPosition> aircraft_positions;
-    aircraft_positions.reserve(num_aircrafts_);
+  int ComputeHeatmap() {
     int known_bodies = 0;
     for (int x = 0; x < r_; x++) {
       for (int y = 0; y < c_; y++) {
         known_bodies += (board_[x][y] == kBlue || board_[x][y] == kRed);
       }
     }
-    int num_combinations =
-        DFS(known_bodies, aircraft_positions, occupied, heatmap);
+
+    vector<AircraftPosition> aircraft_positions;
+    aircraft_positions.reserve(num_aircrafts_);
+
+    vector<vector<bool>> occupied(r_, vector<bool>(c_));
+
+    return DFS(known_bodies, aircraft_positions, occupied);
+  }
+
+ private:
+  int DFS(const int num_remaining_known_bodies,
+          vector<AircraftPosition>& aircraft_positions,
+          vector<vector<bool>>& occupied) {
+    if ((num_aircrafts_ - (int)aircraft_positions.size()) *
+            (int)aircraft_bodies_[0].size() <
+        num_remaining_known_bodies) {
+      return 0;
+    }
+
+    if (num_aircrafts_ == (int)aircraft_positions.size()) {
+      UpdateHeatmap(aircraft_positions);
+      return 1;
+    }
+
+    int num_combinations = 0;
+    vector<pair<int, int>> placed;
+    placed.reserve(aircraft_bodies_[0].size());
+    for (int x = 0; x < r_; x++) {
+      for (int y = 0; y < c_; y++) {
+        if (!aircraft_positions.empty()) {
+          const AircraftPosition& prev = aircraft_positions.back();
+          if (make_pair(x, y) <= make_pair(prev.x, prev.y)) {
+            continue;
+          }
+        }
+        for (int dir = 0; dir < 4; dir++) {
+          int num_known_bodies_covered = 0;
+          if (TryLand(occupied, x, y, dir, &placed,
+                      &num_known_bodies_covered)) {
+            aircraft_positions.push_back(AircraftPosition{x, y, dir});
+            num_combinations +=
+                DFS(num_remaining_known_bodies - num_known_bodies_covered,
+                    aircraft_positions, occupied);
+            aircraft_positions.pop_back();
+          }
+          Lift(occupied, &placed);
+        }
+      }
+    }
+    return num_combinations;
+  }
+
+  bool TryLand(vector<vector<bool>>& occupied, int x, int y, int dir,
+               vector<pair<int, int>>* placed,
+               int* num_known_bodies_covered) const {
+    for (const pair<int, int>& body : aircraft_bodies_[dir]) {
+      int dx = body.first;
+      int dy = body.second;
+      int x2 = x + dx;
+      int y2 = y + dy;
+      if (x2 < 0 || x2 >= r_ || y2 < 0 || y2 >= c_) {
+        return false;
+      }
+      if (occupied[x2][y2]) {
+        return false;
+      }
+      Color new_color = (dx == 0 && dy == 0 ? kRed : kBlue);
+      if (board_[x2][y2] != kGray) {
+        if (board_[x2][y2] != new_color) {
+          return false;
+        }
+        (*num_known_bodies_covered)++;
+      }
+      occupied[x2][y2] = true;
+      placed->push_back({x2, y2});
+    };
+    return true;
+  }
+
+  void Lift(vector<vector<bool>>& occupied,
+            vector<pair<int, int>>* placed) const {
+    while (!placed->empty()) {
+      int x = placed->back().first;
+      int y = placed->back().second;
+      placed->pop_back();
+      occupied[x][y] = false;
+    }
+  }
+
+  void UpdateHeatmap(const vector<AircraftPosition>& aircraft_positions) {
+    for (const auto& pos : aircraft_positions) {
+      for (const pair<int, int>& body : aircraft_bodies_[pos.dir]) {
+        int dx = body.first;
+        int dy = body.second;
+        int x2 = pos.x + dx;
+        int y2 = pos.y + dy;
+        if (dx == 0 && dy == 0) {
+          heatmap_[x2][y2].red++;
+        } else {
+          heatmap_[x2][y2].blue++;
+        }
+      }
+    }
+  }
+
+  const vector<vector<Color>>& board_;
+  const int r_;
+  const int c_;
+  const int num_aircrafts_;
+
+  vector<vector<Frequency>>& heatmap_;
+
+  vector<vector<pair<int, int>>> aircraft_bodies_;
+};
+
+class Solution {
+ public:
+  Solution(int r, int c, int num_aircrafts)
+      : r_(r),
+        c_(c),
+        num_aircrafts_(num_aircrafts),
+        board_(r, vector<Color>(c, kGray)) {}
+
+  void SetColor(int x, int y, Color color) { board_[x][y] = color; }
+
+  void PrintProbabilityMatrix() const {
+    vector<vector<Frequency>> heatmap(r_, vector<Frequency>(c_));
+    DFSHelper helper(board_, num_aircrafts_, heatmap);
+    int num_combinations = helper.ComputeHeatmap();
 
     for (int x = 0; x < r_; x++) {
       for (int y = 0; y < c_; y++) {
@@ -153,49 +274,6 @@ class Solution {
   }
 
  private:
-  int DFS(const int num_remaining_known_bodies,
-          vector<AircraftPosition>& aircraft_positions,
-          vector<vector<bool>>& occupied,
-          vector<vector<Frequency>>& heatmap) const {
-    if ((num_aircrafts_ - (int)aircraft_positions.size()) *
-            (int)aircraft_bodies_[0].size() <
-        num_remaining_known_bodies) {
-      return 0;
-    }
-
-    if (num_aircrafts_ == (int)aircraft_positions.size()) {
-      UpdateHeatmap(aircraft_positions, heatmap);
-      return 1;
-    }
-
-    int num_combinations = 0;
-    vector<pair<int, int>> placed;
-    placed.reserve(aircraft_bodies_[0].size());
-    for (int x = 0; x < r_; x++) {
-      for (int y = 0; y < c_; y++) {
-        if (!aircraft_positions.empty()) {
-          const AircraftPosition& prev = aircraft_positions.back();
-          if (make_pair(x, y) <= make_pair(prev.x, prev.y)) {
-            continue;
-          }
-        }
-        for (int dir = 0; dir < 4; dir++) {
-          int num_known_bodies_covered = 0;
-          if (TryLand(occupied, x, y, dir, &placed,
-                      &num_known_bodies_covered)) {
-            aircraft_positions.push_back(AircraftPosition{x, y, dir});
-            num_combinations +=
-                DFS(num_remaining_known_bodies - num_known_bodies_covered,
-                    aircraft_positions, occupied, heatmap);
-            aircraft_positions.pop_back();
-          }
-          Lift(occupied, &placed);
-        }
-      }
-    }
-    return num_combinations;
-  }
-
   void PrintCell(const Probability& p, const bool is_top,
                  const bool is_known) const {
     double max_probability = max(p.Red(), max(p.Blue(), p.White()));
@@ -219,65 +297,10 @@ class Solution {
     printf("\33[0m");
   }
 
-  void UpdateHeatmap(const vector<AircraftPosition>& aircraft_positions,
-                     vector<vector<Frequency>>& heatmap) const {
-    for (const auto& pos : aircraft_positions) {
-      for (const pair<int, int>& body : aircraft_bodies_[pos.dir]) {
-        int dx = body.first;
-        int dy = body.second;
-        int x2 = pos.x + dx;
-        int y2 = pos.y + dy;
-        if (dx == 0 && dy == 0) {
-          heatmap[x2][y2].red++;
-        } else {
-          heatmap[x2][y2].blue++;
-        }
-      }
-    }
-  }
-
-  bool TryLand(vector<vector<bool>>& occupied, int x, int y, int dir,
-               vector<pair<int, int>>* placed,
-               int* num_known_bodies_covered) const {
-    for (const pair<int, int>& body : aircraft_bodies_[dir]) {
-      int dx = body.first;
-      int dy = body.second;
-      int x2 = x + dx;
-      int y2 = y + dy;
-      if (x2 < 0 || x2 >= r_ || y2 < 0 || y2 >= c_) {
-        return false;
-      }
-      if (occupied[x2][y2]) {
-        return false;
-      }
-      Color new_color = (dx == 0 && dy == 0 ? kRed : kBlue);
-      if (board_[x2][y2] != kGray) {
-        if (board_[x2][y2] != new_color) {
-          return false;
-        }
-        (*num_known_bodies_covered)++;
-      }
-      occupied[x2][y2] = true;
-      placed->push_back({x2, y2});
-    };
-    return true;
-  }
-
-  void Lift(vector<vector<bool>>& occupied,
-            vector<pair<int, int>>* placed) const {
-    while (!placed->empty()) {
-      int x = placed->back().first;
-      int y = placed->back().second;
-      placed->pop_back();
-      occupied[x][y] = false;
-    }
-  }
-
   const int r_;
   const int c_;
   const int num_aircrafts_;
   vector<vector<Color>> board_;
-  vector<vector<pair<int, int>>> aircraft_bodies_;
 };
 
 int main(int argc, char* argv[]) {
