@@ -76,8 +76,7 @@ class Solution {
       : r_(r),
         c_(c),
         num_aircrafts_(num_aircrafts),
-        board_(r, vector<Color>(c, kGray)),
-        known_bodies_(0) {
+        board_(r, vector<Color>(c, kGray)) {
     aircraft_bodies_.resize(4);
     aircraft_bodies_[0] = {{0, 0}, {1, -2}, {1, -1}, {1, 0}, {1, 1},
                            {1, 2}, {2, 0},  {3, -1}, {3, 0}, {3, 1}};
@@ -89,14 +88,7 @@ class Solution {
   }
 
   void SetColor(int x, int y, Color color) {
-    Color old_color = board_[x][y];
     board_[x][y] = color;
-    if (old_color == kBlue || old_color == kRed) {
-      known_bodies_--;
-    }
-    if (color == kBlue || color == kRed) {
-      known_bodies_++;
-    }
   }
 
   void PrintProbabilityMatrix() const {
@@ -104,8 +96,14 @@ class Solution {
     vector<vector<bool>> occupied(r_, vector<bool>(c_));
     vector<AircraftPosition> aircraft_positions;
     aircraft_positions.reserve(num_aircrafts_);
+    int known_bodies = 0;
+    for (int x = 0; x < r_; x++) {
+      for (int y = 0; y < c_; y++) {
+        known_bodies += (board_[x][y] == kBlue || board_[x][y] == kRed);
+      }
+    }
     int num_combinations =
-        DFS(known_bodies_, aircraft_positions, occupied, heatmap);
+        DFS(known_bodies, aircraft_positions, occupied, heatmap);
 
     for (int x = 0; x < r_; x++) {
       for (int y = 0; y < c_; y++) {
@@ -279,7 +277,6 @@ class Solution {
   const int c_;
   const int num_aircrafts_;
   vector<vector<Color>> board_;
-  int known_bodies_;
   vector<vector<pair<int, int>>> aircraft_bodies_;
 };
 
