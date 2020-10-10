@@ -72,13 +72,11 @@ struct AircraftPosition {
 
 class DFSHelper {
  public:
-  DFSHelper(const vector<vector<Color>>& board, const int num_aircrafts,
-            vector<vector<Frequency>>& heatmap)
+  DFSHelper(const vector<vector<Color>>& board, const int num_aircrafts)
       : board_(board),
         r_(board.size()),
         c_(board[0].size()),
-        num_aircrafts_(num_aircrafts),
-        heatmap_(heatmap) {
+        num_aircrafts_(num_aircrafts) {
     aircraft_bodies_.resize(4);
     aircraft_bodies_[0] = {{0, 0}, {1, -2}, {1, -1}, {1, 0}, {1, 1},
                            {1, 2}, {2, 0},  {3, -1}, {3, 0}, {3, 1}};
@@ -89,7 +87,7 @@ class DFSHelper {
     }
   }
 
-  int ComputeHeatmap() {
+  int ComputeHeatmap(vector<vector<Frequency>>& heatmap) const {
     int known_bodies = 0;
     for (int x = 0; x < r_; x++) {
       for (int y = 0; y < c_; y++) {
@@ -102,13 +100,14 @@ class DFSHelper {
 
     vector<vector<bool>> occupied(r_, vector<bool>(c_));
 
-    return DFS(known_bodies, aircraft_positions, occupied);
+    return DFS(known_bodies, aircraft_positions, occupied, heatmap);
   }
 
  private:
   int DFS(const int num_remaining_known_bodies,
           vector<AircraftPosition>& aircraft_positions,
-          vector<vector<bool>>& occupied) {
+          vector<vector<bool>>& occupied,
+          vector<vector<Frequency>>& heatmap) const {
     if ((num_aircrafts_ - (int)aircraft_positions.size()) *
             (int)aircraft_bodies_[0].size() <
         num_remaining_known_bodies) {
@@ -116,7 +115,7 @@ class DFSHelper {
     }
 
     if (num_aircrafts_ == (int)aircraft_positions.size()) {
-      UpdateHeatmap(aircraft_positions);
+      UpdateHeatmap(aircraft_positions, heatmap);
       return 1;
     }
 
@@ -138,7 +137,7 @@ class DFSHelper {
             aircraft_positions.push_back(AircraftPosition{x, y, dir});
             num_combinations +=
                 DFS(num_remaining_known_bodies - num_known_bodies_covered,
-                    aircraft_positions, occupied);
+                    aircraft_positions, occupied, heatmap);
             aircraft_positions.pop_back();
           }
           Lift(occupied, &placed);
@@ -185,7 +184,8 @@ class DFSHelper {
     }
   }
 
-  void UpdateHeatmap(const vector<AircraftPosition>& aircraft_positions) {
+  void UpdateHeatmap(const vector<AircraftPosition>& aircraft_positions,
+                     vector<vector<Frequency>>& heatmap) const {
     for (const auto& pos : aircraft_positions) {
       for (const pair<int, int>& body : aircraft_bodies_[pos.dir]) {
         int dx = body.first;
@@ -193,9 +193,9 @@ class DFSHelper {
         int x2 = pos.x + dx;
         int y2 = pos.y + dy;
         if (dx == 0 && dy == 0) {
-          heatmap_[x2][y2].red++;
+          heatmap[x2][y2].red++;
         } else {
-          heatmap_[x2][y2].blue++;
+          heatmap[x2][y2].blue++;
         }
       }
     }
@@ -205,8 +205,6 @@ class DFSHelper {
   const int r_;
   const int c_;
   const int num_aircrafts_;
-
-  vector<vector<Frequency>>& heatmap_;
 
   vector<vector<pair<int, int>>> aircraft_bodies_;
 };
@@ -222,9 +220,9 @@ class Solution {
   void SetColor(int x, int y, Color color) { board_[x][y] = color; }
 
   void PrintProbabilityMatrix() const {
+    DFSHelper helper(board_, num_aircrafts_);
     vector<vector<Frequency>> heatmap(r_, vector<Frequency>(c_));
-    DFSHelper helper(board_, num_aircrafts_, heatmap);
-    int num_combinations = helper.ComputeHeatmap();
+    int num_combinations = helper.ComputeHeatmap(heatmap);
 
     for (int x = 0; x < r_; x++) {
       for (int y = 0; y < c_; y++) {
