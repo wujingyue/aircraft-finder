@@ -1,6 +1,11 @@
 #include <algorithm>
 #include <cmath>
+#include <future>
 #include <iostream>
+#include <memory>
+#include <mutex>
+#include <queue>
+#include <thread>
 #include <vector>
 
 using namespace std;
@@ -70,13 +75,37 @@ struct AircraftPosition {
   int dir;
 };
 
+class Workqueue {
+ public:
+  void Add(const AircraftPosition& pos) {
+    lock_guard<mutex> guard(mutex_);
+    workqueue_.push(pos);
+  }
+
+  bool Pop(AircraftPosition* pos) {
+    lock_guard<mutex> guard(mutex_);
+    if (workqueue_.empty()) {
+      return false;
+    }
+    *pos = workqueue_.front();
+    workqueue_.pop();
+    return true;
+  }
+
+ private:
+  queue<AircraftPosition> workqueue_;
+  mutex mutex_;
+};
+
 class DFSHelper {
  public:
-  DFSHelper(const vector<vector<Color>>& board, const int num_aircrafts)
+  DFSHelper(const vector<vector<Color>>& board, const int num_aircrafts,
+            Workqueue& workqueue)
       : board_(board),
         r_(board.size()),
         c_(board[0].size()),
-        num_aircrafts_(num_aircrafts) {
+        num_aircrafts_(num_aircrafts),
+        workqueue_(workqueue) {
     aircraft_bodies_.resize(4);
     aircraft_bodies_[0] = {{0, 0}, {1, -2}, {1, -1}, {1, 0}, {1, 1},
                            {1, 2}, {2, 0},  {3, -1}, {3, 0}, {3, 1}};
@@ -87,7 +116,7 @@ class DFSHelper {
     }
   }
 
-  int ComputeHeatmap(vector<vector<Frequency>>& heatmap) const {
+  void ComputeHeatmap(vector<vector<Frequency>>& heatmap) const {
     int known_bodies = 0;
     for (int x = 0; x < r_; x++) {
       for (int y = 0; y < c_; y++) {
@@ -100,7 +129,14 @@ class DFSHelper {
 
     vector<vector<bool>> occupied(r_, vector<bool>(c_));
 
-    return DFS(known_bodies, aircraft_positions, occupied, heatmap);
+    int num_combinations =
+        DFS(known_bodies, aircraft_positions, occupied, heatmap);
+    for (int x = 0; x < r_; x++) {
+      for (int y = 0; y < c_; y++) {
+        heatmap[x][y].white =
+            num_combinations - heatmap[x][y].red - heatmap[x][y].blue;
+      }
+    }
   }
 
  private:
@@ -119,28 +155,43 @@ class DFSHelper {
       return 1;
     }
 
-    int num_combinations = 0;
     vector<pair<int, int>> placed;
     placed.reserve(aircraft_bodies_[0].size());
-    for (int x = 0; x < r_; x++) {
-      for (int y = 0; y < c_; y++) {
-        if (!aircraft_positions.empty()) {
+
+    auto Process = [this, num_remaining_known_bodies, &aircraft_positions,
+                    &occupied, &heatmap,
+                    &placed](int x, int y, int dir) -> int {
+      int num_combinations = 0;
+
+      int num_known_bodies_covered = 0;
+      if (TryLand(occupied, x, y, dir, &placed, &num_known_bodies_covered)) {
+        aircraft_positions.push_back(AircraftPosition{x, y, dir});
+        num_combinations =
+            DFS(num_remaining_known_bodies - num_known_bodies_covered,
+                aircraft_positions, occupied, heatmap);
+        aircraft_positions.pop_back();
+      }
+      Lift(occupied, &placed);
+
+      return num_combinations;
+    };
+
+    int num_combinations = 0;
+    if (aircraft_positions.empty()) {
+      AircraftPosition pos;
+      while (workqueue_.Pop(&pos)) {
+        num_combinations += Process(pos.x, pos.y, pos.dir);
+      }
+    } else {
+      for (int x = 0; x < r_; x++) {
+        for (int y = 0; y < c_; y++) {
           const AircraftPosition& prev = aircraft_positions.back();
           if (make_pair(x, y) <= make_pair(prev.x, prev.y)) {
             continue;
           }
-        }
-        for (int dir = 0; dir < 4; dir++) {
-          int num_known_bodies_covered = 0;
-          if (TryLand(occupied, x, y, dir, &placed,
-                      &num_known_bodies_covered)) {
-            aircraft_positions.push_back(AircraftPosition{x, y, dir});
-            num_combinations +=
-                DFS(num_remaining_known_bodies - num_known_bodies_covered,
-                    aircraft_positions, occupied, heatmap);
-            aircraft_positions.pop_back();
+          for (int dir = 0; dir < 4; dir++) {
+            num_combinations += Process(x, y, dir);
           }
-          Lift(occupied, &placed);
         }
       }
     }
@@ -206,6 +257,8 @@ class DFSHelper {
   const int c_;
   const int num_aircrafts_;
 
+  Workqueue& workqueue_;
+
   vector<vector<pair<int, int>>> aircraft_bodies_;
 };
 
@@ -220,14 +273,39 @@ class Solution {
   void SetColor(int x, int y, Color color) { board_[x][y] = color; }
 
   void PrintProbabilityMatrix() const {
-    DFSHelper helper(board_, num_aircrafts_);
-    vector<vector<Frequency>> heatmap(r_, vector<Frequency>(c_));
-    int num_combinations = helper.ComputeHeatmap(heatmap);
-
+    Workqueue workqueue;
     for (int x = 0; x < r_; x++) {
       for (int y = 0; y < c_; y++) {
-        heatmap[x][y].white =
-            num_combinations - heatmap[x][y].red - heatmap[x][y].blue;
+        for (int dir = 0; dir < 4; dir++) {
+          workqueue.Add(AircraftPosition{x, y, dir});
+        }
+      }
+    }
+
+    const int num_threads = thread::hardware_concurrency();
+    vector<unique_ptr<DFSHelper>> workers;
+    vector<future<void>> worker_is_done;
+    vector<vector<vector<Frequency>>> heatmap_per_worker(
+        num_threads, vector<vector<Frequency>>(r_, vector<Frequency>(c_)));
+    for (int i = 0; i < num_threads; i++) {
+      auto helper = make_unique<DFSHelper>(board_, num_aircrafts_, workqueue);
+      worker_is_done.push_back(async(launch::async, &DFSHelper::ComputeHeatmap,
+                                     helper.get(), ref(heatmap_per_worker[i])));
+      workers.push_back(move(helper));
+    }
+
+    for (int i = 0; i < num_threads; i++) {
+      worker_is_done[i].wait();
+    }
+
+    vector<vector<Frequency>> heatmap(r_, vector<Frequency>(c_));
+    for (int i = 0; i < num_threads; i++) {
+      for (int x = 0; x < r_; x++) {
+        for (int y = 0; y < c_; y++) {
+          heatmap[x][y].red += heatmap_per_worker[i][x][y].red;
+          heatmap[x][y].blue += heatmap_per_worker[i][x][y].blue;
+          heatmap[x][y].white += heatmap_per_worker[i][x][y].white;
+        }
       }
     }
 
