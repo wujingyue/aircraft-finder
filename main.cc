@@ -20,7 +20,7 @@ struct Frequency {
 
 class Probability {
  public:
-  explicit Probability(Frequency freq) {
+  explicit Probability(const Frequency& freq) {
     red_ = freq.red;
     blue_ = freq.blue;
     white_ = freq.white;
