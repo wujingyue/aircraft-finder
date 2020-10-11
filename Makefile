@@ -1,4 +1,4 @@
-CXXFLAGS = -g -Wall -Werror -O2
+CXXFLAGS = -g -Wall -Werror -O2 -pthread
 
 all: main
 
