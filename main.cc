@@ -341,8 +341,12 @@ class Solution {
 
     vector<pair<int, int>> top_cells;
     constexpr int kPrintLimit = 1;
+    printf("Top cells:\n");
     for (int i = 0; i < kPrintLimit; i++) {
-      top_cells.push_back({cell_probabilities[i].x, cell_probabilities[i].y});
+      const int x = cell_probabilities[i].x;
+      const int y = cell_probabilities[i].y;
+      printf("%d %c\n", x + 1, 'A' + y);
+      top_cells.push_back({x, y});
     }
 
     printf("  ");
