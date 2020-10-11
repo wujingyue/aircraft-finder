@@ -23,7 +23,26 @@ struct Frequency {
   int white = 0;
 };
 
-using Heatmap = vector<vector<Frequency>>;
+class Heatmap : public vector<vector<Frequency>> {
+ public:
+  Heatmap(const int r, const int c)
+      : vector<vector<Frequency>>(r, vector<Frequency>(c)), r_(r), c_(c) {}
+
+  Heatmap& operator+=(const Heatmap& other) {
+    for (int x = 0; x < r_; x++) {
+      for (int y = 0; y < c_; y++) {
+        (*this)[x][y].red += other[x][y].red;
+        (*this)[x][y].blue += other[x][y].blue;
+        (*this)[x][y].white += other[x][y].white;
+      }
+    }
+    return *this;
+  }
+
+ private:
+  const int r_;
+  const int c_;
+};
 
 class Probability {
  public:
@@ -131,7 +150,7 @@ class DFSHelper {
 
     vector<vector<bool>> occupied(r_, vector<bool>(c_));
 
-    Heatmap heatmap(r_, vector<Frequency>(c_));
+    Heatmap heatmap(r_, c_);
     int num_combinations =
         DFS(known_bodies, aircraft_positions, occupied, heatmap);
     for (int x = 0; x < r_; x++) {
@@ -297,16 +316,9 @@ class Solution {
       workers.push_back(move(helper));
     }
 
-    Heatmap heatmap(r_, vector<Frequency>(c_));
+    Heatmap heatmap(r_, c_);
     for (int i = 0; i < num_threads; i++) {
-      Heatmap h = heatmap_per_worker[i].get();
-      for (int x = 0; x < r_; x++) {
-        for (int y = 0; y < c_; y++) {
-          heatmap[x][y].red += h[x][y].red;
-          heatmap[x][y].blue += h[x][y].blue;
-          heatmap[x][y].white += h[x][y].white;
-        }
-      }
+      heatmap += heatmap_per_worker[i].get();
     }
 
     vector<vector<Probability>> normalized_heatmap;
