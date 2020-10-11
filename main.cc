@@ -118,7 +118,7 @@ class DFSHelper {
     }
   }
 
-  void ComputeHeatmap(Heatmap& heatmap) const {
+  Heatmap ComputeHeatmap() const {
     int known_bodies = 0;
     for (int x = 0; x < r_; x++) {
       for (int y = 0; y < c_; y++) {
@@ -131,6 +131,7 @@ class DFSHelper {
 
     vector<vector<bool>> occupied(r_, vector<bool>(c_));
 
+    Heatmap heatmap(r_, vector<Frequency>(c_));
     int num_combinations =
         DFS(known_bodies, aircraft_positions, occupied, heatmap);
     for (int x = 0; x < r_; x++) {
@@ -139,6 +140,7 @@ class DFSHelper {
             num_combinations - heatmap[x][y].red - heatmap[x][y].blue;
       }
     }
+    return heatmap;
   }
 
  private:
@@ -285,27 +287,24 @@ class Solution {
 
     const int num_threads = thread::hardware_concurrency();
     vector<unique_ptr<DFSHelper>> workers;
-    vector<future<void>> worker_is_done;
-    vector<Heatmap> heatmap_per_worker(num_threads,
-                                       Heatmap(r_, vector<Frequency>(c_)));
+    workers.reserve(num_threads);
+    vector<future<Heatmap>> heatmap_per_worker;
+    heatmap_per_worker.reserve(num_threads);
     for (int i = 0; i < num_threads; i++) {
       auto helper = make_unique<DFSHelper>(board_, num_aircrafts_, workqueue);
-      worker_is_done.push_back(async(launch::async, &DFSHelper::ComputeHeatmap,
-                                     helper.get(), ref(heatmap_per_worker[i])));
+      heatmap_per_worker.push_back(
+          async(launch::async, &DFSHelper::ComputeHeatmap, helper.get()));
       workers.push_back(move(helper));
-    }
-
-    for (int i = 0; i < num_threads; i++) {
-      worker_is_done[i].wait();
     }
 
     Heatmap heatmap(r_, vector<Frequency>(c_));
     for (int i = 0; i < num_threads; i++) {
+      Heatmap h = heatmap_per_worker[i].get();
       for (int x = 0; x < r_; x++) {
         for (int y = 0; y < c_; y++) {
-          heatmap[x][y].red += heatmap_per_worker[i][x][y].red;
-          heatmap[x][y].blue += heatmap_per_worker[i][x][y].blue;
-          heatmap[x][y].white += heatmap_per_worker[i][x][y].white;
+          heatmap[x][y].red += h[x][y].red;
+          heatmap[x][y].blue += h[x][y].blue;
+          heatmap[x][y].white += h[x][y].white;
         }
       }
     }
