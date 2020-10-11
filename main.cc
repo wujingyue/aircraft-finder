@@ -5,6 +5,7 @@
 #include <memory>
 #include <mutex>
 #include <queue>
+#include <sstream>
 #include <thread>
 #include <vector>
 
@@ -294,7 +295,7 @@ class Solution {
 
   void SetColor(int x, int y, Color color) { board_[x][y] = color; }
 
-  void PrintProbabilityMatrix() const {
+  pair<int, int> PrintProbabilityMatrix() const {
     Workqueue workqueue;
     for (int x = 0; x < r_; x++) {
       for (int y = 0; y < c_; y++) {
@@ -340,12 +341,10 @@ class Solution {
          });
 
     vector<pair<int, int>> top_cells;
-    constexpr int kPrintLimit = 1;
-    printf("Top cells:\n");
-    for (int i = 0; i < kPrintLimit; i++) {
+    constexpr int kHighlightLimit = 1;
+    for (int i = 0; i < kHighlightLimit; i++) {
       const int x = cell_probabilities[i].x;
       const int y = cell_probabilities[i].y;
-      printf("%d %c\n", x + 1, 'A' + y);
       top_cells.push_back({x, y});
     }
 
@@ -363,6 +362,10 @@ class Solution {
       }
       printf("\n");
     }
+
+    const pair<int, int>& top_cell = top_cells[0];
+    printf("(%d, %c) > ", top_cell.first + 1, 'A' + top_cell.second);
+    return top_cell;
   }
 
  private:
@@ -408,14 +411,26 @@ int main(int argc, char* argv[]) {
   Solution s(r, c, num_aircrafts);
 
   int x;
-  char char_y;
-  char color;
-  s.PrintProbabilityMatrix();
-  while (cin >> x >> char_y >> color) {
-    x--;
-    int y = char_y - (isupper(char_y) ? 'A' : 'a');
+  int y;
+  tie(x, y) = s.PrintProbabilityMatrix();
+
+  string line;
+  while (getline(cin, line)) {
+    char color;
+
+    istringstream iss(line);
+    iss >> color;
+    if (isdigit(color)) {
+      iss.str(line);
+
+      char char_y;
+      iss >> x >> char_y >> color;
+      x--;
+      y = char_y - (isupper(char_y) ? 'A' : 'a');
+    }
+
     s.SetColor(x, y, static_cast<Color>(color));
-    s.PrintProbabilityMatrix();
+    tie(x, y) = s.PrintProbabilityMatrix();
   }
 
   return 0;
