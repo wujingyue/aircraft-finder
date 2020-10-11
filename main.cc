@@ -23,6 +23,8 @@ struct Frequency {
   int white = 0;
 };
 
+using Heatmap = vector<vector<Frequency>>;
+
 class Probability {
  public:
   explicit Probability(const Frequency& freq) {
@@ -116,7 +118,7 @@ class DFSHelper {
     }
   }
 
-  void ComputeHeatmap(vector<vector<Frequency>>& heatmap) const {
+  void ComputeHeatmap(Heatmap& heatmap) const {
     int known_bodies = 0;
     for (int x = 0; x < r_; x++) {
       for (int y = 0; y < c_; y++) {
@@ -142,8 +144,7 @@ class DFSHelper {
  private:
   int DFS(const int num_remaining_known_bodies,
           vector<AircraftPosition>& aircraft_positions,
-          vector<vector<bool>>& occupied,
-          vector<vector<Frequency>>& heatmap) const {
+          vector<vector<bool>>& occupied, Heatmap& heatmap) const {
     if ((num_aircrafts_ - (int)aircraft_positions.size()) *
             (int)aircraft_bodies_[0].size() <
         num_remaining_known_bodies) {
@@ -236,7 +237,7 @@ class DFSHelper {
   }
 
   void UpdateHeatmap(const vector<AircraftPosition>& aircraft_positions,
-                     vector<vector<Frequency>>& heatmap) const {
+                     Heatmap& heatmap) const {
     for (const auto& pos : aircraft_positions) {
       for (const pair<int, int>& body : aircraft_bodies_[pos.dir]) {
         int dx = body.first;
@@ -285,8 +286,8 @@ class Solution {
     const int num_threads = thread::hardware_concurrency();
     vector<unique_ptr<DFSHelper>> workers;
     vector<future<void>> worker_is_done;
-    vector<vector<vector<Frequency>>> heatmap_per_worker(
-        num_threads, vector<vector<Frequency>>(r_, vector<Frequency>(c_)));
+    vector<Heatmap> heatmap_per_worker(num_threads,
+                                       Heatmap(r_, vector<Frequency>(c_)));
     for (int i = 0; i < num_threads; i++) {
       auto helper = make_unique<DFSHelper>(board_, num_aircrafts_, workqueue);
       worker_is_done.push_back(async(launch::async, &DFSHelper::ComputeHeatmap,
@@ -298,7 +299,7 @@ class Solution {
       worker_is_done[i].wait();
     }
 
-    vector<vector<Frequency>> heatmap(r_, vector<Frequency>(c_));
+    Heatmap heatmap(r_, vector<Frequency>(c_));
     for (int i = 0; i < num_threads; i++) {
       for (int x = 0; x < r_; x++) {
         for (int y = 0; y < c_; y++) {
