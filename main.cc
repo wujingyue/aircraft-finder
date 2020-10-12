@@ -334,10 +334,23 @@ class Solution {
       }
     }
     sort(cell_probabilities.begin(), cell_probabilities.end(),
-         [](const CellProbability& p1, const CellProbability& p2) {
+         [this](const CellProbability& p1, const CellProbability& p2) {
+           // Pick the cell with a larger entropy.
            const double e1 = p1.prob.Entropy();
            const double e2 = p2.prob.Entropy();
-           return e1 > e2 || (e1 == e2 && p1.prob.Red() > p2.prob.Red());
+           if (e1 != e2) {
+             return e1 > e2;
+           }
+
+           // Pick the cell whose color is unknown.
+           const bool known1 = board_[p1.x][p1.y] != kGray;
+           const bool known2 = board_[p2.x][p2.y] != kGray;
+           if (known1 != known2) {
+             return known1 < known2;
+           }
+
+           // Pick the cell that is more likely to be red.
+           return p1.prob.Red() > p2.prob.Red();
          });
 
     vector<pair<int, int>> top_cells;
