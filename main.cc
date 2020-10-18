@@ -287,9 +287,9 @@ class DFSHelper {
   vector<vector<pair<int, int>>> aircraft_bodies_;
 };
 
-class Solution {
+class AircraftFinder {
  public:
-  Solution(int r, int c, int num_aircrafts)
+  AircraftFinder(int r, int c, int num_aircrafts)
       : r_(r),
         c_(c),
         num_aircrafts_(num_aircrafts),
@@ -297,7 +297,7 @@ class Solution {
 
   void SetColor(int x, int y, Color color) { board_[x][y] = color; }
 
-  pair<int, int> PrintProbabilityMatrix() const {
+  pair<int, int> GetCellToBomb() const {
     Workqueue workqueue;
     for (int x = 0; x < r_; x++) {
       for (int y = 0; y < c_; y++) {
@@ -445,11 +445,11 @@ int main(int argc, char* argv[]) {
     return 1;
   }
 
-  Solution s(rows, cols, num_aircrafts);
+  AircraftFinder finder(rows, cols, num_aircrafts);
 
   int x;
   int y;
-  tie(x, y) = s.PrintProbabilityMatrix();
+  tie(x, y) = finder.GetCellToBomb();
 
   string line;
   while (getline(cin, line)) {
@@ -457,6 +457,7 @@ int main(int argc, char* argv[]) {
 
     istringstream iss(line);
     iss >> color;
+    // If the line contains a color only, reuse the cell to bomb.
     if (isdigit(color)) {
       iss.str(line);
 
@@ -466,8 +467,8 @@ int main(int argc, char* argv[]) {
       y = char_y - (isupper(char_y) ? 'A' : 'a');
     }
 
-    s.SetColor(x, y, static_cast<Color>(color));
-    tie(x, y) = s.PrintProbabilityMatrix();
+    finder.SetColor(x, y, static_cast<Color>(color));
+    tie(x, y) = finder.GetCellToBomb();
   }
 
   return 0;
