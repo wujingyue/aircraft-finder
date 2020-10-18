@@ -183,17 +183,20 @@ class DFSHelper {
     vector<pair<int, int>> placed;
     placed.reserve(aircraft_bodies_[0].size());
 
-    auto Process = [this, num_remaining_known_bodies, &aircraft_positions,
-                    &occupied, &heatmap,
-                    &placed](int x, int y, int dir) -> int {
+    auto Process = [this, &aircraft_positions, &occupied, &heatmap, &placed](
+                       int x, int y, int dir,
+                       int num_remaining_known_bodies) -> int {
       int num_combinations = 0;
 
-      int num_known_bodies_covered = 0;
-      if (TryLand(x, y, dir, &occupied, &placed, &num_known_bodies_covered)) {
+      if (TryLand(x, y, dir, &occupied, &placed)) {
+        for (const pair<int, int>& p : placed) {
+          if (board_[p.first][p.second] != kGray) {
+            num_remaining_known_bodies--;
+          }
+        }
         aircraft_positions.push_back(AircraftPosition{x, y, dir});
-        num_combinations =
-            DFS(num_remaining_known_bodies - num_known_bodies_covered,
-                aircraft_positions, occupied, heatmap);
+        num_combinations = DFS(num_remaining_known_bodies, aircraft_positions,
+                               occupied, heatmap);
         aircraft_positions.pop_back();
       }
       Lift(&occupied, &placed);
@@ -205,7 +208,8 @@ class DFSHelper {
     if (aircraft_positions.empty()) {
       AircraftPosition pos;
       while (workqueue_.Pop(&pos)) {
-        num_combinations += Process(pos.x, pos.y, pos.dir);
+        num_combinations +=
+            Process(pos.x, pos.y, pos.dir, num_remaining_known_bodies);
       }
     } else {
       for (int x = 0; x < r_; x++) {
@@ -215,7 +219,7 @@ class DFSHelper {
             continue;
           }
           for (int dir = 0; dir < 4; dir++) {
-            num_combinations += Process(x, y, dir);
+            num_combinations += Process(x, y, dir, num_remaining_known_bodies);
           }
         }
       }
@@ -224,8 +228,7 @@ class DFSHelper {
   }
 
   bool TryLand(int x, int y, int dir, vector<vector<bool>>* occupied,
-               vector<pair<int, int>>* placed,
-               int* num_known_bodies_covered) const {
+               vector<pair<int, int>>* placed) const {
     for (const pair<int, int>& body : aircraft_bodies_[dir]) {
       int dx = body.first;
       int dy = body.second;
@@ -242,7 +245,6 @@ class DFSHelper {
         if (board_[x2][y2] != new_color) {
           return false;
         }
-        (*num_known_bodies_covered)++;
       }
       (*occupied)[x2][y2] = true;
       placed->push_back({x2, y2});
