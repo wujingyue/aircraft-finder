@@ -189,14 +189,14 @@ class DFSHelper {
       int num_combinations = 0;
 
       int num_known_bodies_covered = 0;
-      if (TryLand(occupied, x, y, dir, &placed, &num_known_bodies_covered)) {
+      if (TryLand(x, y, dir, &occupied, &placed, &num_known_bodies_covered)) {
         aircraft_positions.push_back(AircraftPosition{x, y, dir});
         num_combinations =
             DFS(num_remaining_known_bodies - num_known_bodies_covered,
                 aircraft_positions, occupied, heatmap);
         aircraft_positions.pop_back();
       }
-      Lift(occupied, &placed);
+      Lift(&occupied, &placed);
 
       return num_combinations;
     };
@@ -223,7 +223,7 @@ class DFSHelper {
     return num_combinations;
   }
 
-  bool TryLand(vector<vector<bool>>& occupied, int x, int y, int dir,
+  bool TryLand(int x, int y, int dir, vector<vector<bool>>* occupied,
                vector<pair<int, int>>* placed,
                int* num_known_bodies_covered) const {
     for (const pair<int, int>& body : aircraft_bodies_[dir]) {
@@ -234,7 +234,7 @@ class DFSHelper {
       if (x2 < 0 || x2 >= r_ || y2 < 0 || y2 >= c_) {
         return false;
       }
-      if (occupied[x2][y2]) {
+      if ((*occupied)[x2][y2]) {
         return false;
       }
       Color new_color = (dx == 0 && dy == 0 ? kRed : kBlue);
@@ -244,19 +244,19 @@ class DFSHelper {
         }
         (*num_known_bodies_covered)++;
       }
-      occupied[x2][y2] = true;
+      (*occupied)[x2][y2] = true;
       placed->push_back({x2, y2});
     };
     return true;
   }
 
-  void Lift(vector<vector<bool>>& occupied,
+  void Lift(vector<vector<bool>>* occupied,
             vector<pair<int, int>>* placed) const {
     while (!placed->empty()) {
       int x = placed->back().first;
       int y = placed->back().second;
       placed->pop_back();
-      occupied[x][y] = false;
+      (*occupied)[x][y] = false;
     }
   }
 
