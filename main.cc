@@ -1,3 +1,5 @@
+#include <unistd.h>
+
 #include <algorithm>
 #include <cmath>
 #include <future>
@@ -411,17 +413,39 @@ class Solution {
   vector<vector<Color>> board_;
 };
 
+void PrintUsage(const char* exec_name) {
+  cerr << "Usage: " << exec_name << " -r rows -c cols -n aircrafts" << endl;
+}
+
 int main(int argc, char* argv[]) {
-  if (argc < 4) {
-    cerr << "Usage error: ./main <num rows> <num colums> <num aircrafts>"
-         << endl;
+  int rows = 0;
+  int cols = 0;
+  int num_aircrafts = 0;
+
+  int opt;
+  while ((opt = getopt(argc, argv, "r:c:n:")) != -1) {
+    switch (opt) {
+      case 'r':
+        rows = atoi(optarg);
+        break;
+      case 'c':
+        cols = atoi(optarg);
+        break;
+      case 'n':
+        num_aircrafts = atoi(optarg);
+        break;
+      default:
+        PrintUsage(argv[0]);
+        return 1;
+    }
+  }
+
+  if (rows <= 0 || cols <= 0 || num_aircrafts <= 0) {
+    PrintUsage(argv[0]);
     return 1;
   }
 
-  int r = atoi(argv[1]);
-  int c = atoi(argv[2]);
-  int num_aircrafts = atoi(argv[3]);
-  Solution s(r, c, num_aircrafts);
+  Solution s(rows, cols, num_aircrafts);
 
   int x;
   int y;
