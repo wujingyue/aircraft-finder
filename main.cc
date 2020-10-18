@@ -297,7 +297,7 @@ class AircraftFinder {
 
   void SetColor(int x, int y, Color color) { board_[x][y] = color; }
 
-  pair<int, int> GetCellToBomb() const {
+  pair<int, int> GetCellToBomb(const bool print_entropy_matrix) const {
     Workqueue workqueue;
     for (int x = 0; x < r_; x++) {
       for (int y = 0; y < c_; y++) {
@@ -355,31 +355,33 @@ class AircraftFinder {
            return p1.prob.Red() > p2.prob.Red();
          });
 
-    vector<pair<int, int>> top_cells;
-    constexpr int kHighlightLimit = 1;
-    for (int i = 0; i < kHighlightLimit; i++) {
-      const int x = cell_probabilities[i].x;
-      const int y = cell_probabilities[i].y;
-      top_cells.push_back({x, y});
-    }
+    pair<int, int> top_cell(cell_probabilities[0].x, cell_probabilities[0].y);
 
-    printf("  ");
-    for (int y = 0; y < c_; y++) {
-      printf("%6c", 'A' + y);
-    }
-    printf("\n");
-    for (int x = 0; x < r_; x++) {
-      printf("%2d: ", x + 1);
+    if (print_entropy_matrix) {
+      vector<pair<int, int>> top_cells;
+      constexpr int kHighlightLimit = 1;
+      for (int i = 0; i < kHighlightLimit; i++) {
+        const int x = cell_probabilities[i].x;
+        const int y = cell_probabilities[i].y;
+        top_cells.push_back({x, y});
+      }
+
+      printf("  ");
       for (int y = 0; y < c_; y++) {
-        bool is_top = find(top_cells.begin(), top_cells.end(),
-                           make_pair(x, y)) != top_cells.end();
-        PrintCell(normalized_heatmap[x][y], is_top, board_[x][y] != kGray);
+        printf("%6c", 'A' + y);
       }
       printf("\n");
+      for (int x = 0; x < r_; x++) {
+        printf("%2d: ", x + 1);
+        for (int y = 0; y < c_; y++) {
+          bool is_top = find(top_cells.begin(), top_cells.end(),
+                             make_pair(x, y)) != top_cells.end();
+          PrintCell(normalized_heatmap[x][y], is_top, board_[x][y] != kGray);
+        }
+        printf("\n");
+      }
     }
 
-    const pair<int, int>& top_cell = top_cells[0];
-    printf("(%d, %c) > ", top_cell.first + 1, 'A' + top_cell.second);
     return top_cell;
   }
 
@@ -447,14 +449,18 @@ int main(int argc, char* argv[]) {
 
   AircraftFinder finder(rows, cols, num_aircrafts);
 
-  int x;
-  int y;
-  tie(x, y) = finder.GetCellToBomb();
+  while (true) {
+    int x;
+    int y;
+    tie(x, y) = finder.GetCellToBomb(true);
+    printf("(%d, %c) > ", x + 1, 'A' + y);
 
-  string line;
-  while (getline(cin, line)) {
+    string line;
+    if (!getline(cin, line)) {
+      break;
+    }
+
     char color;
-
     istringstream iss(line);
     iss >> color;
     // If the line contains a color only, reuse the cell to bomb.
@@ -468,7 +474,6 @@ int main(int argc, char* argv[]) {
     }
 
     finder.SetColor(x, y, static_cast<Color>(color));
-    tie(x, y) = finder.GetCellToBomb();
   }
 
   return 0;
