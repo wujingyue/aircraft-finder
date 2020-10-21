@@ -11,14 +11,10 @@
 #include <thread>
 #include <vector>
 
-using namespace std;
+#include "aircraft_placer.h"
+#include "color.h"
 
-enum Color : char {
-  kWhite = 'w',
-  kGray = 'g',
-  kBlue = 'b',
-  kRed = 'r',
-};
+using namespace std;
 
 struct Frequency {
   int red = 0;
@@ -129,16 +125,8 @@ class DFSHelper {
         r_(board.size()),
         c_(board[0].size()),
         num_aircrafts_(num_aircrafts),
-        workqueue_(workqueue) {
-    aircraft_bodies_.resize(4);
-    aircraft_bodies_[0] = {{0, 0}, {1, -2}, {1, -1}, {1, 0}, {1, 1},
-                           {1, 2}, {2, 0},  {3, -1}, {3, 0}, {3, 1}};
-    for (int k = 1; k < 4; k++) {
-      for (const pair<int, int>& body : aircraft_bodies_[k - 1]) {
-        aircraft_bodies_[k].push_back({-body.second, body.first});
-      }
-    }
-  }
+        workqueue_(workqueue),
+        placer_(board) {}
 
   Heatmap ComputeHeatmap() const {
     int known_bodies = 0;
@@ -170,7 +158,7 @@ class DFSHelper {
           vector<AircraftPosition>& aircraft_positions,
           vector<vector<bool>>& occupied, Heatmap& heatmap) const {
     if ((num_aircrafts_ - (int)aircraft_positions.size()) *
-            (int)aircraft_bodies_[0].size() <
+            placer_.AircraftSize() <
         num_remaining_known_bodies) {
       return 0;
     }
@@ -181,14 +169,14 @@ class DFSHelper {
     }
 
     vector<pair<int, int>> placed;
-    placed.reserve(aircraft_bodies_[0].size());
+    placed.reserve(placer_.AircraftSize());
 
     auto Process = [this, &aircraft_positions, &occupied, &heatmap, &placed](
                        int x, int y, int dir,
                        int num_remaining_known_bodies) -> int {
       int num_combinations = 0;
 
-      if (TryLand(x, y, dir, &occupied, &placed)) {
+      if (placer_.TryLand(x, y, dir, &occupied, &placed)) {
         for (const pair<int, int>& p : placed) {
           if (board_[p.first][p.second] != kGray) {
             num_remaining_known_bodies--;
@@ -199,7 +187,7 @@ class DFSHelper {
                                occupied, heatmap);
         aircraft_positions.pop_back();
       }
-      Lift(&occupied, &placed);
+      placer_.Lift(&occupied, &placed);
 
       return num_combinations;
     };
@@ -227,49 +215,15 @@ class DFSHelper {
     return num_combinations;
   }
 
-  bool TryLand(int x, int y, int dir, vector<vector<bool>>* occupied,
-               vector<pair<int, int>>* placed) const {
-    for (const pair<int, int>& body : aircraft_bodies_[dir]) {
-      int dx = body.first;
-      int dy = body.second;
-      int x2 = x + dx;
-      int y2 = y + dy;
-      if (x2 < 0 || x2 >= r_ || y2 < 0 || y2 >= c_) {
-        return false;
-      }
-      if ((*occupied)[x2][y2]) {
-        return false;
-      }
-      Color new_color = (dx == 0 && dy == 0 ? kRed : kBlue);
-      if (board_[x2][y2] != kGray) {
-        if (board_[x2][y2] != new_color) {
-          return false;
-        }
-      }
-      (*occupied)[x2][y2] = true;
-      placed->push_back({x2, y2});
-    };
-    return true;
-  }
-
-  void Lift(vector<vector<bool>>* occupied,
-            vector<pair<int, int>>* placed) const {
-    while (!placed->empty()) {
-      int x = placed->back().first;
-      int y = placed->back().second;
-      placed->pop_back();
-      (*occupied)[x][y] = false;
-    }
-  }
-
   void UpdateHeatmap(const vector<AircraftPosition>& aircraft_positions,
                      Heatmap& heatmap) const {
     for (const auto& pos : aircraft_positions) {
-      for (const pair<int, int>& body : aircraft_bodies_[pos.dir]) {
-        int dx = body.first;
-        int dy = body.second;
-        int x2 = pos.x + dx;
-        int y2 = pos.y + dy;
+      for (const pair<int, int>& body :
+           placer_.GetAircraftBody(pos.dir)) {
+        const int dx = body.first;
+        const int dy = body.second;
+        const int x2 = pos.x + dx;
+        const int y2 = pos.y + dy;
         if (dx == 0 && dy == 0) {
           heatmap[x2][y2].red++;
         } else {
@@ -286,7 +240,7 @@ class DFSHelper {
 
   Workqueue& workqueue_;
 
-  vector<vector<pair<int, int>>> aircraft_bodies_;
+  AircraftPlacer placer_;
 };
 
 class AircraftFinder {
