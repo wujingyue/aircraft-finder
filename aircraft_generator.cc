@@ -69,13 +69,17 @@ int main(int argc, char* argv[]) {
   for (int x = 0; x < rows; x++) {
     printf("%2d: ", x + 1);
     for (int y = 0; y < cols; y++) {
-      if (board[x][y] == kGray) {
-        printf("  ");
-      } else {
-        printf("\033[0;%dm", (board[x][y] == kRed ? 31 : 34));
-        printf("AA");
-        printf("\33[0m");
+      int color_code = 30;
+      int style_code = 0;
+      if (board[x][y] == kRed) {
+        color_code = 31;
+        style_code = 1;
+      } else if (board[x][y] == kBlue) {
+        color_code = 34;
       }
+      printf("\033[%d;%dm", style_code, color_code);
+      printf(" A");
+      printf("\33[0m");
     }
     printf("\n");
   }
