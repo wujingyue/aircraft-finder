@@ -1,18 +1,24 @@
 CXX = g++
 CXXFLAGS = -std=c++14 -g -Wall -Werror -O2 -pthread
 
-all: main
+all: aircraft_finder aircraft_generator
 
 aircraft_placer.o: aircraft_placer.cc aircraft_placer.h color.h
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
-main.o: main.cc aircraft_placer.h color.h
+aircraft_finder.o: aircraft_finder.cc aircraft_placer.h color.h
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
-main: main.o aircraft_placer.o
+aircraft_finder: aircraft_finder.o aircraft_placer.o
+	$(CXX) $(CXXFLAGS) $^ -o $@
+
+aircraft_generator.o: aircraft_generator.cc aircraft_placer.h color.h
+	$(CXX) $(CXXFLAGS) -c $< -o $@
+
+aircraft_generator: aircraft_generator.o aircraft_placer.o
 	$(CXX) $(CXXFLAGS) $^ -o $@
 
 clean:
-	rm -f main *.o
+	rm -f aircraft_finder aircraft_generator *.o *.stackdump
 
 .PHONY: clean
