@@ -34,5 +34,13 @@ vector<vector<Color>> AircraftGenerator::Generate() const {
     }
   }
 
+  for (int x = 0; x < r_; x++) {
+    for (int y = 0; y < c_; y++) {
+      if (board[x][y] == kGray) {
+        board[x][y] = kWhite;
+      }
+    }
+  }
+
   return board;
 }
