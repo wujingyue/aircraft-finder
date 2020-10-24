@@ -38,6 +38,7 @@ int main(int argc, char* argv[]) {
     return 1;
   }
 
+  srand(time(nullptr));
   AircraftGenerator generator(rows, cols, num_aircrafts);
   vector<vector<Color>> board = generator.Generate();
 

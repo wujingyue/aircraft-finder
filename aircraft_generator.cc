@@ -16,7 +16,6 @@ vector<vector<Color>> AircraftGenerator::Generate() const {
   vector<vector<bool>> occupied(r_, vector<bool>(c_, false));
 
   AircraftPlacer placer(board);
-  srand(time(nullptr));
   for (int i = 0; i < num_aircrafts_; i++) {
     while (true) {
       int x = rand() % r_;
