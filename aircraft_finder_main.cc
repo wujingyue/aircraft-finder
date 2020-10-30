@@ -43,6 +43,7 @@ int main(int argc, char* argv[]) {
   AircraftFinder finder(rows, cols, num_aircrafts);
 
   int num_remaining_aircrafts = num_aircrafts;
+  int num_guesses = 0;
   while (true) {
     int x;
     int y;
@@ -51,7 +52,8 @@ int main(int argc, char* argv[]) {
       break;
     }
 
-    printf("(%d, %c) > ", x + 1, 'A' + y);
+    num_guesses++;
+    printf("Guess #%d: (%d, %c) > ", num_guesses, x + 1, 'A' + y);
 
     string line;
     if (!getline(cin, line)) {
