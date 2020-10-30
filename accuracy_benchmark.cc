@@ -11,7 +11,8 @@
 using namespace std;
 
 void PrintUsage(const char* exec_name) {
-  cerr << "Usage: " << exec_name << " -r rows -c cols -n aircrafts" << endl;
+  cerr << "Usage: " << exec_name << " -r rows -c cols -n aircrafts -g games"
+       << endl;
 }
 
 class Histogram {
@@ -67,9 +68,10 @@ int main(int argc, char* argv[]) {
   int rows = 0;
   int cols = 0;
   int num_aircrafts = 0;
+  int num_games = 0;
 
   int opt;
-  while ((opt = getopt(argc, argv, "r:c:n:")) != -1) {
+  while ((opt = getopt(argc, argv, "r:c:n:g:")) != -1) {
     switch (opt) {
       case 'r':
         rows = atoi(optarg);
@@ -80,13 +82,16 @@ int main(int argc, char* argv[]) {
       case 'n':
         num_aircrafts = atoi(optarg);
         break;
+      case 'g':
+        num_games = atoi(optarg);
+        break;
       default:
         PrintUsage(argv[0]);
         return 1;
     }
   }
 
-  if (rows <= 0 || cols <= 0 || num_aircrafts <= 0) {
+  if (rows <= 0 || cols <= 0 || num_aircrafts <= 0 || num_games <= 0) {
     PrintUsage(argv[0]);
     return 1;
   }
@@ -95,7 +100,7 @@ int main(int argc, char* argv[]) {
   srand(1229);
 
   Histogram histogram;
-  for (int i = 0; i < 100; i++) {
+  for (int i = 0; i < num_games; i++) {
     vector<vector<Color>> board = generator.Generate();
 
     AircraftFinder finder(rows, cols, num_aircrafts);
@@ -113,6 +118,7 @@ int main(int argc, char* argv[]) {
       }
     }
 
+    cerr << "Game " << i << ": " << num_guesses << endl;
     histogram.AddNumGuesses(num_guesses);
   }
 
