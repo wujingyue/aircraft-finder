@@ -42,10 +42,15 @@ int main(int argc, char* argv[]) {
 
   AircraftFinder finder(rows, cols, num_aircrafts);
 
+  int num_remaining_aircrafts = num_aircrafts;
   while (true) {
     int x;
     int y;
     tie(x, y) = finder.GetCellToBomb(true);
+    if (num_remaining_aircrafts <= 0) {
+      break;
+    }
+
     printf("(%d, %c) > ", x + 1, 'A' + y);
 
     string line;
@@ -53,20 +58,24 @@ int main(int argc, char* argv[]) {
       break;
     }
 
-    char color;
+    char char_c;
     istringstream iss(line);
-    iss >> color;
+    iss >> char_c;
     // If the line contains a color only, reuse the cell to bomb.
-    if (isdigit(color)) {
+    if (isdigit(char_c)) {
       iss.str(line);
 
       char char_y;
-      iss >> x >> char_y >> color;
+      iss >> x >> char_y >> char_c;
       x--;
       y = char_y - (isupper(char_y) ? 'A' : 'a');
     }
 
-    finder.SetColor(x, y, static_cast<Color>(color));
+    Color c = static_cast<Color>(char_c);
+    finder.SetColor(x, y, c);
+    if (c == kRed) {
+      num_remaining_aircrafts--;
+    }
   }
 
   return 0;
