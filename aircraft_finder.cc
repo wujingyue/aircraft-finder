@@ -270,37 +270,40 @@ pair<int, int> AircraftFinder::GetCellToBomb(
       cell_probabilities.push_back(CellProbability{x, y, prob});
     }
   }
-  sort(cell_probabilities.begin(), cell_probabilities.end(),
-       [this](const CellProbability& p1, const CellProbability& p2) {
-         // Pick the cell with a larger entropy.
-         const double e1 = p1.prob.Entropy();
-         const double e2 = p2.prob.Entropy();
-         if (e1 != e2) {
-           return e1 > e2;
-         }
 
-         // Pick the cell whose color is unknown.
-         const bool known1 = board_[p1.x][p1.y] != kGray;
-         const bool known2 = board_[p2.x][p2.y] != kGray;
-         if (known1 != known2) {
-           return known1 < known2;
-         }
+  double max_red = 0.0;
+  pair<int, int> top_cell(-1, -1);
+  for (const CellProbability& p : cell_probabilities) {
+    if (board_[p.x][p.y] == kGray && p.prob.Red() > max_red) {
+      max_red = p.prob.Red();
+      top_cell = make_pair(p.x, p.y);
+    }
+  }
+  constexpr double kThresholdMustBomb = 0.5;
+  if (max_red < kThresholdMustBomb) {
+    sort(cell_probabilities.begin(), cell_probabilities.end(),
+         [this](const CellProbability& p1, const CellProbability& p2) {
+           // Pick the cell with a larger entropy.
+           const double e1 = p1.prob.Entropy();
+           const double e2 = p2.prob.Entropy();
+           if (e1 != e2) {
+             return e1 > e2;
+           }
 
-         // Pick the cell that is more likely to be red.
-         return p1.prob.Red() > p2.prob.Red();
-       });
+           // Pick the cell whose color is unknown.
+           const bool known1 = board_[p1.x][p1.y] != kGray;
+           const bool known2 = board_[p2.x][p2.y] != kGray;
+           if (known1 != known2) {
+             return known1 < known2;
+           }
 
-  pair<int, int> top_cell(cell_probabilities[0].x, cell_probabilities[0].y);
+           // Pick the cell that is more likely to be red.
+           return p1.prob.Red() > p2.prob.Red();
+         });
+    top_cell = make_pair(cell_probabilities[0].x, cell_probabilities[0].y);
+  }
 
   if (print_entropy_matrix) {
-    vector<pair<int, int>> top_cells;
-    constexpr int kHighlightLimit = 1;
-    for (int i = 0; i < kHighlightLimit; i++) {
-      const int x = cell_probabilities[i].x;
-      const int y = cell_probabilities[i].y;
-      top_cells.push_back({x, y});
-    }
-
     printf("  ");
     for (int y = 0; y < c_; y++) {
       printf("%6c", 'A' + y);
@@ -309,9 +312,8 @@ pair<int, int> AircraftFinder::GetCellToBomb(
     for (int x = 0; x < r_; x++) {
       printf("%2d: ", x + 1);
       for (int y = 0; y < c_; y++) {
-        bool is_top = find(top_cells.begin(), top_cells.end(),
-                           make_pair(x, y)) != top_cells.end();
-        PrintCell(normalized_heatmap[x][y], is_top, board_[x][y] != kGray);
+        PrintCell(normalized_heatmap[x][y], make_pair(x, y) == top_cell,
+                  board_[x][y] != kGray);
       }
       printf("\n");
     }
